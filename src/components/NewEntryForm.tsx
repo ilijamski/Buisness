@@ -5,15 +5,20 @@ import { createEntry, type EntryFormState } from "@/app/mitarbeiter/actions";
 import type { Vehicle } from "@/lib/types";
 
 const initialState: EntryFormState = { error: null, success: false };
+const RECEIPT_PLACEHOLDER = "Foto aufnehmen oder Datei wählen…";
 
 export function NewEntryForm({ vehicles }: { vehicles: Vehicle[] }) {
   const [state, formAction, pending] = useActionState(createEntry, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const receiptNameRef = useRef<HTMLSpanElement>(null);
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
+      if (receiptNameRef.current) {
+        receiptNameRef.current.textContent = RECEIPT_PLACEHOLDER;
+      }
     }
   }, [state.success]);
 
@@ -106,6 +111,37 @@ export function NewEntryForm({ vehicles }: { vehicles: Vehicle[] }) {
           rows={2}
           placeholder="z. B. Ölwechsel, Tankstelle, Schadenshergang…"
           className="w-full resize-none rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor="receipt" className="block text-xs font-medium text-muted">
+          Beleg-Foto (optional)
+        </label>
+        <label
+          htmlFor="receipt"
+          className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-bg px-3 py-2.5 text-sm text-muted transition hover:border-accent"
+        >
+          <span ref={receiptNameRef} className="truncate">
+            {RECEIPT_PLACEHOLDER}
+          </span>
+          <span className="shrink-0 rounded-md bg-surface-2 px-2 py-1 text-xs text-fg">
+            Auswählen
+          </span>
+        </label>
+        <input
+          id="receipt"
+          name="receipt"
+          type="file"
+          accept="image/*,application/pdf"
+          capture="environment"
+          className="sr-only"
+          onChange={(e) => {
+            if (receiptNameRef.current) {
+              receiptNameRef.current.textContent =
+                e.target.files?.[0]?.name ?? RECEIPT_PLACEHOLDER;
+            }
+          }}
         />
       </div>
 

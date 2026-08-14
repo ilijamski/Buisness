@@ -6,6 +6,7 @@ import { CostByVehicle } from "@/components/CostByVehicle";
 import { AllEntriesTable } from "@/components/AllEntriesTable";
 import { AddVehicleForm } from "@/components/AddVehicleForm";
 import { VehicleCard } from "@/components/VehicleCard";
+import { getReceiptUrls } from "@/lib/receipts";
 import type { Entry, EntryWithVehicle, Profile, Vehicle } from "@/lib/types";
 
 export default async function AdminPage() {
@@ -30,6 +31,7 @@ export default async function AdminPage() {
   const authorEmails = new Map(
     ((profiles as Profile[] | null) ?? []).map((p) => [p.id, p.email]),
   );
+  const receiptUrls = await getReceiptUrls(supabase, entryList);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -58,7 +60,7 @@ export default async function AdminPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-fg">Alle Einträge</h2>
-          <AllEntriesTable entries={entryList} authorEmails={authorEmails} />
+          <AllEntriesTable entries={entryList} authorEmails={authorEmails} receiptUrls={receiptUrls} />
         </section>
       </main>
     </div>

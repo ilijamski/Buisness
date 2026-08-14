@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { VehicleCard } from "@/components/VehicleCard";
 import { NewEntryForm } from "@/components/NewEntryForm";
 import { EntryHistory } from "@/components/EntryHistory";
+import { getReceiptUrls } from "@/lib/receipts";
 import type { EntryWithVehicle, Vehicle } from "@/lib/types";
 
 export default async function MitarbeiterPage() {
@@ -23,6 +24,8 @@ export default async function MitarbeiterPage() {
       .order("date", { ascending: false })
       .limit(50),
   ]);
+
+  const receiptUrls = await getReceiptUrls(supabase, (entries as EntryWithVehicle[] | null) ?? []);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -48,7 +51,7 @@ export default async function MitarbeiterPage() {
 
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-fg">Meine Historie</h2>
-            <EntryHistory entries={(entries as EntryWithVehicle[] | null) ?? []} />
+            <EntryHistory entries={(entries as EntryWithVehicle[] | null) ?? []} receiptUrls={receiptUrls} />
           </div>
         </section>
       </main>

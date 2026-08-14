@@ -27,6 +27,7 @@ export type Entry = {
   note: string | null;
   date: string;
   author_id: string;
+  receipt_path: string | null;
   created_at: string;
 };
 
