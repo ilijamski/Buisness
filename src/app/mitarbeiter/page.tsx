@@ -1,60 +1,60 @@
 import { redirect } from "next/navigation";
-import { requireProfile } from "@/lib/auth";
+import { requireSession, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { VehicleCard } from "@/components/VehicleCard";
-import { NewEntryForm } from "@/components/NewEntryForm";
-import { EntryHistory } from "@/components/EntryHistory";
-import { getReceiptUrls } from "@/lib/receipts";
-import type { EntryWithVehicle, Vehicle } from "@/lib/types";
+import { Card, PageTitle, Notice, EmptyState } from "@/components/ui";
+import { VehicleList } from "@/components/VehicleList";
+import type { Vehicle } from "@/lib/types";
 
 export default async function MitarbeiterPage() {
-  const { profile } = await requireProfile();
+  const { profile, company } = await requireSession();
   if (profile.role === "admin") {
     redirect("/admin");
   }
 
+  const config = await loadCompanyModules(profile.company_id!);
   const supabase = await createClient();
 
-  const [{ data: vehicles }, { data: entries }] = await Promise.all([
-    supabase.from("vehicles").select("*").order("name"),
-    supabase
-      .from("entries")
-      .select("*, vehicles(id, name, plate)")
-      .order("date", { ascending: false })
-      .limit(50),
-  ]);
+  // RLS liefert Mitarbeitern ausschließlich die ihnen zugewiesenen Fahrzeuge.
+  const { data: vehicles } = await supabase
+    .from("vehicles")
+    .select("*")
+    .order("vehicle_number");
 
-  const receiptUrls = await getReceiptUrls(supabase, (entries as EntryWithVehicle[] | null) ?? []);
+  const vehicleList = (vehicles as Vehicle[] | null) ?? [];
 
   return (
-    <div className="min-h-screen bg-bg">
-      <Header profile={profile} />
+    <>
+      <Header profile={profile} company={company} />
 
-      <main className="mx-auto max-w-5xl space-y-8 px-4 py-6">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-fg">Fahrzeuge</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(vehicles as Vehicle[] | null)?.map((vehicle) => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} />
-            ))}
-            {(!vehicles || vehicles.length === 0) && (
-              <p className="text-sm text-muted">Noch keine Fahrzeuge im Fuhrpark.</p>
-            )}
-          </div>
-        </section>
+      <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
+        <PageTitle
+          title="Meine Fahrzeuge"
+          subtitle={`Deine Mitarbeiter-Nummer: ${profile.employee_number ?? "—"}`}
+        />
 
-        <section className="grid gap-8 lg:grid-cols-2">
-          <div>
-            <NewEntryForm vehicles={(vehicles as Vehicle[] | null) ?? []} />
-          </div>
+        {vehicleList.length === 0 ? (
+          <Card>
+            <Notice kind="info">
+              Dir ist noch kein Fahrzeug zugewiesen. Gib deinem Fuhrpark-Admin deine
+              Mitarbeiter-Nummer <strong>{profile.employee_number ?? "—"}</strong> durch,
+              dann schaltet er dein Fahrzeug frei.
+            </Notice>
+          </Card>
+        ) : (
+          <Card title="Zugewiesene Fahrzeuge">
+            <VehicleList vehicles={vehicleList} config={config} />
+          </Card>
+        )}
 
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-fg">Meine Historie</h2>
-            <EntryHistory entries={(entries as EntryWithVehicle[] | null) ?? []} receiptUrls={receiptUrls} />
-          </div>
-        </section>
+        {vehicleList.length > 0 && (
+          <Card>
+            <EmptyState>
+              Öffne ein Fahrzeug, um Tankungen, Fahrten, Schäden und Belege zu erfassen.
+            </EmptyState>
+          </Card>
+        )}
       </main>
-    </div>
+    </>
   );
 }

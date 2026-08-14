@@ -1,23 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Entry } from "@/lib/types";
+import type { Database } from "@/lib/types";
 
 export const RECEIPTS_BUCKET = "receipts";
+export const DOCUMENTS_BUCKET = "documents";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
-export async function getReceiptUrls(
+/**
+ * Erzeugt Signed URLs für private Storage-Dateien.
+ * Rückgabe: Map von Pfad -> URL (fehlende Dateien fehlen in der Map).
+ */
+export async function getSignedUrls(
   supabase: SupabaseClient<Database>,
-  entries: Pick<Entry, "receipt_path">[],
+  bucket: string,
+  paths: (string | null | undefined)[],
 ): Promise<Map<string, string>> {
-  const paths = entries
-    .map((entry) => entry.receipt_path)
-    .filter((path): path is string => !!path);
+  const cleaned = [...new Set(paths.filter((p): p is string => !!p))];
 
   const map = new Map<string, string>();
-  if (paths.length === 0) return map;
+  if (cleaned.length === 0) return map;
 
   const { data } = await supabase.storage
-    .from(RECEIPTS_BUCKET)
-    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+    .from(bucket)
+    .createSignedUrls(cleaned, SIGNED_URL_TTL_SECONDS);
 
   for (const item of data ?? []) {
     if (item.path && item.signedUrl) {
@@ -25,4 +29,15 @@ export async function getReceiptUrls(
     }
   }
   return map;
+}
+
+export async function getReceiptUrls(
+  supabase: SupabaseClient<Database>,
+  entries: { receipt_path: string | null }[],
+): Promise<Map<string, string>> {
+  return getSignedUrls(
+    supabase,
+    RECEIPTS_BUCKET,
+    entries.map((entry) => entry.receipt_path),
+  );
 }

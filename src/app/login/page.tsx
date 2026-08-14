@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
+import { Button, Field, Notice } from "@/components/ui";
 
 const initialState: LoginState = { error: null };
 
@@ -9,62 +11,32 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-xl font-bold text-bg">
-            F
-          </div>
-          <h1 className="text-2xl font-semibold text-fg">Fuhrpark-Manager</h1>
-          <p className="mt-1 text-sm text-muted">Melde dich mit deinem Konto an</p>
-        </div>
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-10">
+      <h1 className="text-xl font-semibold">Fuhrpark-Manager</h1>
+      <p className="mt-1 text-sm text-muted">Bitte melde dich an.</p>
 
-        <form action={formAction} className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-lg">
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-sm font-medium text-fg">
-              E-Mail
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="max@firma.de"
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
+      <form action={formAction} className="mt-5 space-y-3 rounded border border-border bg-bg p-4">
+        <Field label="E-Mail" required>
+          <input name="email" type="email" required autoComplete="email" />
+        </Field>
 
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="block text-sm font-medium text-fg">
-              Passwort
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
+        <Field label="Passwort" required>
+          <input name="password" type="password" required autoComplete="current-password" />
+        </Field>
 
-          {state.error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
-              {state.error}
-            </p>
-          )}
+        {state.error && <Notice kind="error">{state.error}</Notice>}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-hover disabled:opacity-60"
-          >
-            {pending ? "Anmelden…" : "Anmelden"}
-          </button>
-        </form>
-      </div>
-    </div>
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? "Anmelden…" : "Anmelden"}
+        </Button>
+      </form>
+
+      <p className="mt-4 text-center text-sm text-muted">
+        Noch kein Konto?{" "}
+        <Link href="/registrieren" className="text-accent underline">
+          Firma anlegen oder beitreten
+        </Link>
+      </p>
+    </main>
   );
 }

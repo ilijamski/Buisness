@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { requireProfile } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 
 export default async function Home() {
-  const { profile } = await requireProfile();
+  const { profile } = await requireSession();
   redirect(profile.role === "admin" ? "/admin" : "/mitarbeiter");
 }

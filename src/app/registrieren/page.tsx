@@ -1,0 +1,108 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useState } from "react";
+import {
+  registerCompany,
+  registerEmployee,
+  type RegisterState,
+} from "./actions";
+import { Button, Field, Notice } from "@/components/ui";
+
+const initialState: RegisterState = { error: null };
+
+type Mode = "company" | "employee";
+
+export default function RegisterPage() {
+  const [mode, setMode] = useState<Mode>("company");
+  const action = mode === "company" ? registerCompany : registerEmployee;
+  const [state, formAction, pending] = useActionState(action, initialState);
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+      <h1 className="text-xl font-semibold">Fuhrpark-Manager</h1>
+      <p className="mt-1 text-sm text-muted">
+        Firmenkonto anlegen oder einer bestehenden Firma beitreten.
+      </p>
+
+      <div className="mt-5 flex rounded border border-border-strong text-sm">
+        <button
+          type="button"
+          onClick={() => setMode("company")}
+          className={`flex-1 rounded-l px-3 py-2 ${
+            mode === "company" ? "bg-primary font-medium text-white" : "bg-bg hover:bg-page"
+          }`}
+        >
+          Firma anlegen
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("employee")}
+          className={`flex-1 rounded-r border-l border-border-strong px-3 py-2 ${
+            mode === "employee" ? "bg-primary font-medium text-white" : "bg-bg hover:bg-page"
+          }`}
+        >
+          Firma beitreten
+        </button>
+      </div>
+
+      {/* key erzwingt ein frisches Formular beim Moduswechsel */}
+      <form key={mode} action={formAction} className="mt-4 space-y-3 rounded border border-border bg-bg p-4">
+        {mode === "company" ? (
+          <Field label="Firmenname" required>
+            <input name="company_name" required placeholder="Muster Bau GmbH" />
+          </Field>
+        ) : (
+          <Field
+            label="Firmen-Code"
+            required
+            hint="Den Code bekommst du von deinem Fuhrpark-Admin."
+          >
+            <input
+              name="join_code"
+              required
+              placeholder="z. B. K7M2PQRS"
+              autoCapitalize="characters"
+              className="uppercase"
+            />
+          </Field>
+        )}
+
+        <Field label="Name">
+          <input name="full_name" placeholder="Max Mustermann" autoComplete="name" />
+        </Field>
+
+        <Field label="E-Mail" required>
+          <input name="email" type="email" required autoComplete="email" />
+        </Field>
+
+        <Field label="Passwort" required hint="Mindestens 8 Zeichen.">
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </Field>
+
+        {state.error && <Notice kind="error">{state.error}</Notice>}
+
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending
+            ? "Wird angelegt…"
+            : mode === "company"
+              ? "Firmenkonto anlegen"
+              : "Firma beitreten"}
+        </Button>
+      </form>
+
+      <p className="mt-4 text-center text-sm text-muted">
+        Schon registriert?{" "}
+        <Link href="/login" className="text-accent underline">
+          Zum Login
+        </Link>
+      </p>
+    </main>
+  );
+}
