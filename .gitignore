@@ -30,8 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — Geheimnisse bleiben draußen.
+# Ausnahme: `.env` enthält ausschließlich NEXT_PUBLIC_-Werte, die ohnehin im
+# Browser-Bundle landen. Sie stehen im Repo, damit der Build sie ohne
+# Vercel-Konfiguration findet. Alles Geheime gehört in `.env.local` (lokal)
+# bzw. in die Vercel-Projekteinstellungen (Server).
 .env*
+!.env
 !.env*.example
 
 # vercel

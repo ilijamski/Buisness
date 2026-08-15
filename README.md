@@ -98,15 +98,38 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
 
 ## 2. Umgebungsvariablen
 
-```bash
-cp .env.local.example .env.local
-```
+Die Konfiguration ist zweigeteilt, entlang der Frage: landet der Wert im
+Browser oder nicht?
+
+**Öffentlich — steht in `.env` im Repository.** Alles mit dem Präfix
+`NEXT_PUBLIC_` backt Next.js in das JavaScript ein, das an jeden Besucher
+ausgeliefert wird. Diese Werte sind also nicht geheim und liegen deshalb
+versioniert im Projekt; der Build findet sie ohne weitere Konfiguration:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<dein-projekt>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<dein-anon-key>
+```
 
-# Für Passwort-Reset-Links und Einladungen (Domain des Deployments)
+Der Anon-Key ist genau dafür vorgesehen. Die Datenbank schützt nicht er,
+sondern Row Level Security — ohne gültige Sitzung kommt man mit ihm an keine
+Zeile heran.
+
+**Geheim — niemals ins Repository.** `SUPABASE_SERVICE_ROLE_KEY`,
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`,
+`VAPID_PRIVATE_KEY`: lokal in `.env.local` (von Git ausgenommen), im Betrieb
+in die Projekteinstellungen des Hosters.
+
+```bash
+cp .env.local.example .env.local
+```
+
+Zwei weitere optionale öffentliche Werte:
+
+```
+# Domain des Deployments für Passwort-Reset-Links und Einladungen.
+# Ohne Angabe nimmt die App den Host der Anfrage — auf Vercel also die
+# richtige Domain. Fest eintragen, sobald eine eigene Domain dranhängt.
 NEXT_PUBLIC_SITE_URL=https://fuhrpark.deine-domain.de
 
 # Öffentlicher VAPID-Schlüssel für Push (siehe Abschnitt Push weiter unten)
@@ -400,7 +423,10 @@ src/proxy.ts                   Next.js Proxy (ehem. Middleware) für Session-/Ro
 
 ## Deployment
 
-[Vercel](https://vercel.com/new): Repo importieren, die beiden
-`NEXT_PUBLIC_SUPABASE_*`-Variablen setzen, deployen. Die App ist
+[Vercel](https://vercel.com/new): Repo importieren und deployen — die beiden
+`NEXT_PUBLIC_SUPABASE_*`-Variablen stehen in `.env` und werden mitgebaut.
+Nur die geheimen Schlüssel (Stripe, Service-Role, Resend, VAPID) trägst du in
+den Projekteinstellungen ein, und auch die erst, wenn du die zugehörigen
+Funktionen einschaltest. Die App ist
 mobiloptimiert und läuft im Browser — für eine App-Store-Variante lässt sie
 sich als PWA installieren oder mit Capacitor verpacken.
