@@ -6,6 +6,7 @@ export type UserSettings = {
   user_id: string;
   theme: Theme;
   email_reminders: boolean;
+  push_reminders: boolean;
   default_trip_type: TripType;
   compact_lists: boolean;
   updated_at: string;
@@ -15,6 +16,7 @@ export type UserSettings = {
 export const DEFAULT_USER_SETTINGS: Omit<UserSettings, "user_id" | "updated_at"> = {
   theme: "light",
   email_reminders: true,
+  push_reminders: true,
   default_trip_type: "dienstlich",
   compact_lists: false,
 };

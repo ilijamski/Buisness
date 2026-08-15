@@ -81,6 +81,7 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
    | `0005_logbook_documents.sql` | Fahrtenbuch, Werkstatt, Tankkarten, Dokumente + Bucket |
    | `0006_reminders.sql` | Erinnerungen für alle Fristen-Module |
    | `0007_settings.sql` | Benutzer-Präferenzen, Firmeneinstellungen, Kontolöschung |
+   | `0008_corrections_push_invites.sql` | Korrekturfenster für eigene Einträge, Push-Abos |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
@@ -101,7 +102,46 @@ cp .env.local.example .env.local
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<dein-projekt>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<dein-anon-key>
+
+# Für Passwort-Reset-Links und Einladungen (Domain des Deployments)
+NEXT_PUBLIC_SITE_URL=https://fuhrpark.deine-domain.de
+
+# Öffentlicher VAPID-Schlüssel für Push (siehe Abschnitt Push weiter unten)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<vapid-public-key>
 ```
+
+## Passwort-Reset per Gmail einrichten
+
+Die Reset-Mail verschickt **Supabase Auth**, nicht die App. Damit sie über ein
+Gmail-Konto rausgeht, wird Supabase auf Gmail-SMTP umgestellt:
+
+1. Im Google-Konto die **Bestätigung in zwei Schritten** aktivieren
+   (ohne sie gibt es keine App-Passwörter).
+2. Unter [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+   ein **App-Passwort** erzeugen (16 Zeichen).
+3. In Supabase unter **Project Settings → Authentication → SMTP Settings**
+   eintragen:
+
+   | Feld | Wert |
+   | --- | --- |
+   | Host | `smtp.gmail.com` |
+   | Port | `587` |
+   | Username | die vollständige Gmail-Adresse |
+   | Password | das App-Passwort (nicht das Konto-Passwort) |
+   | Sender email | dieselbe Gmail-Adresse |
+   | Sender name | z. B. `Fuhrpark-Manager` |
+
+4. Unter **Authentication → URL Configuration** die **Site URL** auf die Domain
+   setzen und `https://<domain>/auth/callback` als Redirect-URL erlauben.
+
+> **Grenzen von Gmail:** Ein normales Gmail-Konto darf rund 500 Empfänger pro
+> Tag bedienen, und Google stuft automatisierte Mails schnell als verdächtig
+> ein. Für den Dauerbetrieb mit vielen Nutzern ist ein Transaktionsdienst wie
+> Resend (bereits für die Fristen-Mails eingebunden) die zuverlässigere Wahl —
+> dort trägt man dieselben SMTP-Felder mit den Resend-Zugangsdaten ein.
+
+Nutzer kommen über **Login → „Passwort vergessen?"** an den Ablauf; der Link
+aus der Mail landet auf `/auth/callback` und von dort auf `/passwort-neu`.
 
 ## 3. Lokal starten
 
@@ -170,6 +210,44 @@ Die Function löscht immer nur das Konto des Aufrufers (identifiziert über dess
 JWT), entfernt seine Belege aus dem Storage und blockt den letzten Admin einer
 Firma mit weiteren Mitgliedern. Ist der Nutzer das letzte Firmenmitglied, wird
 die Firma samt aller Daten gelöscht.
+
+## Push-Benachrichtigungen einrichten
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Den öffentlichen Schlüssel als `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in der App
+hinterlegen, beide Schlüssel als Function-Secrets:
+
+```bash
+supabase secrets set VAPID_PUBLIC_KEY=<public>
+supabase secrets set VAPID_PRIVATE_KEY=<private>
+supabase secrets set VAPID_SUBJECT="mailto:admin@deine-domain.de"
+```
+
+Nutzer aktivieren Push dann unter *Einstellungen → Push-Benachrichtigungen*.
+Auf dem iPhone geht das erst, wenn die App zum Home-Bildschirm hinzugefügt
+wurde — das sagt die Oberfläche auch so.
+
+## Offline arbeiten
+
+Ohne Verbindung landen neue Einträge in einer lokalen Warteschlange
+(IndexedDB) und werden automatisch übertragen, sobald wieder Netz da ist. Ein
+Hinweisbalken zeigt an, wie viele Einträge noch warten. Bewusst nur beim
+Anlegen — Änderungen offline zu puffern würde Konfliktauflösung erfordern.
+
+## Eigene Einträge korrigieren
+
+Mitarbeiter dürfen ihre Einträge **24 Stunden lang** selbst ändern oder
+löschen; danach nur noch Admins. Das Zeitfenster steckt in der RLS-Policy
+(`within_correction_window`), die Oberfläche blendet die Schaltfläche nur
+entsprechend ein.
+
+## iOS-App
+
+Siehe [`APPSTORE.md`](./APPSTORE.md) — dort steht, wie das Xcode-Projekt
+entsteht, was Apple verlangt und wo das Ablehnungsrisiko liegt.
 
 ## Zugriffsmodell (Row Level Security)
 

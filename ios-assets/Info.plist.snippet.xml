@@ -1,0 +1,23 @@
+<!--
+  Nach `npx cap add ios` diese Einträge in ios/App/App/Info.plist ergänzen.
+
+  Die Zweckbeschreibungen erscheinen dem Nutzer wörtlich im Berechtigungs-
+  dialog. Apple lehnt Apps ab, wenn hier nur "wird benötigt" steht — die
+  Formulierungen unten benennen den konkreten Nutzen.
+-->
+<key>NSCameraUsageDescription</key>
+<string>Damit du Tankbelege und Schäden direkt fotografieren kannst.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Damit du vorhandene Fotos von Belegen und Fahrzeugdokumenten anhängen kannst.</string>
+
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>Damit aufgenommene Belegfotos in deiner Fotomediathek gesichert werden können.</string>
+
+<!-- Für Push über APNs zusätzlich in Xcode die Capability
+     "Push Notifications" und unter "Background Modes" den Punkt
+     "Remote notifications" aktivieren. -->
+<key>UIBackgroundModes</key>
+<array>
+  <string>remote-notification</string>
+</array>

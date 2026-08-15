@@ -24,6 +24,12 @@ export default function LoginPage() {
           <input name="password" type="password" required autoComplete="current-password" />
         </Field>
 
+        <p className="text-right text-sm">
+          <Link href="/passwort-vergessen" className="text-accent underline">
+            Passwort vergessen?
+          </Link>
+        </p>
+
         {state.error && <Notice kind="error">{state.error}</Notice>}
 
         <Button type="submit" disabled={pending} className="w-full">

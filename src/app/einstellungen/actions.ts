@@ -36,6 +36,7 @@ export async function savePreferences(
       theme: theme as Theme,
       default_trip_type: tripType as TripType,
       email_reminders: formData.get("email_reminders") === "on",
+      push_reminders: formData.get("push_reminders") === "on",
       compact_lists: formData.get("compact_lists") === "on",
       updated_at: new Date().toISOString(),
     },

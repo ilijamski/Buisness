@@ -16,6 +16,7 @@
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY liefert die Edge-Runtime.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 /** Genutzt, wenn eine Firma keine eigene Vorlaufzeit gesetzt hat. */
 const DEFAULT_LEAD_DAYS = 30;
@@ -239,6 +240,60 @@ Deno.serve(async () => {
       recipientsByCompany.set(admin.company_id, list);
     }
 
+    // Push-Abos der Admins, die Push nicht abgeschaltet haben.
+    const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY");
+    const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
+    const vapidSubject = Deno.env.get("VAPID_SUBJECT") ?? `mailto:${fromEmail}`;
+    const pushEnabled = Boolean(vapidPublic && vapidPrivate);
+
+    if (pushEnabled) {
+      webpush.setVapidDetails(vapidSubject, vapidPublic!, vapidPrivate!);
+    }
+
+    const [{ data: subscriptions }, { data: pushOptOuts }] = await Promise.all([
+      supabase.from("push_subscriptions").select("*").eq("platform", "web"),
+      supabase.from("user_settings").select("user_id").eq("push_reminders", false),
+    ]);
+
+    const pushUnsubscribed = new Set((pushOptOuts ?? []).map((row) => row.user_id as string));
+    const adminIdsByCompany = new Map<string, string[]>();
+    for (const admin of admins ?? []) {
+      if (!admin.company_id) continue;
+      const list = adminIdsByCompany.get(admin.company_id) ?? [];
+      list.push(admin.id as string);
+      adminIdsByCompany.set(admin.company_id, list);
+    }
+
+    async function sendPush(companyId: string, title: string, body: string) {
+      if (!pushEnabled) return;
+
+      const adminIds = new Set(adminIdsByCompany.get(companyId) ?? []);
+      const targets = (subscriptions ?? []).filter(
+        (sub) =>
+          adminIds.has(sub.user_id as string) && !pushUnsubscribed.has(sub.user_id as string),
+      );
+
+      for (const sub of targets) {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint as string,
+              keys: { p256dh: sub.p256dh as string, auth: sub.auth as string },
+            },
+            JSON.stringify({ title, body, url: "/", tag: "frist" }),
+          );
+        } catch (error) {
+          // 404/410 = Abo ist tot (App deinstalliert) und wird aufgeräumt.
+          const status = (error as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) {
+            await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+          } else {
+            console.error("Push-Fehler:", error);
+          }
+        }
+      }
+    }
+
     let sent = 0;
     for (const reminder of todo) {
       const recipients = recipientsByCompany.get(reminder.companyId);
@@ -276,6 +331,13 @@ Deno.serve(async () => {
         console.error(`Protokollierung fehlgeschlagen: ${insertError.message}`);
         continue;
       }
+
+      // Push ergänzt die E-Mail; ein Fehler hier darf den Lauf nicht stoppen.
+      await sendPush(
+        reminder.companyId,
+        reminder.title,
+        `Fällig am ${reminder.dueDate}.`,
+      );
 
       sent++;
     }

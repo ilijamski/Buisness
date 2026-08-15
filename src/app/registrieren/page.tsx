@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { Suspense, useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   registerCompany,
   registerEmployee,
@@ -14,7 +15,21 @@ const initialState: RegisterState = { error: null };
 type Mode = "company" | "employee";
 
 export default function RegisterPage() {
-  const [mode, setMode] = useState<Mode>("company");
+  // useSearchParams braucht eine Suspense-Grenze, damit die Seite statisch
+  // ausgeliefert werden kann.
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
+  // Über einen Einladungslink (?code=…) startet die Seite direkt im
+  // Beitritts-Modus mit ausgefülltem Code.
+  const searchParams = useSearchParams();
+  const invitedCode = searchParams.get("code")?.trim().toUpperCase() ?? "";
+  const [mode, setMode] = useState<Mode>(invitedCode ? "employee" : "company");
   const action = mode === "company" ? registerCompany : registerEmployee;
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -61,6 +76,7 @@ export default function RegisterPage() {
             <input
               name="join_code"
               required
+              defaultValue={invitedCode}
               placeholder="z. B. K7M2PQRS"
               autoCapitalize="characters"
               className="uppercase"

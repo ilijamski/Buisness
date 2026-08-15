@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { NativeShell } from "@/components/NativeShell";
 
 export const metadata: Metadata = {
   title: "Fuhrpark-Manager",
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         {children}
         <ServiceWorker />
+        <NativeShell />
       </body>
     </html>
   );

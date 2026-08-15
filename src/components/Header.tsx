@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
+import { OfflineStatus } from "@/components/OfflineStatus";
 import type { Company, Profile } from "@/lib/types";
 
 function linksFor(role: Profile["role"]) {
@@ -58,6 +59,7 @@ export function Header({
       </header>
 
       <BottomNav role={profile.role} />
+      <OfflineStatus />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle, Badge, EmptyState } from "@/components/ui";
 import { LicenseForm } from "@/components/LicenseForm";
+import { InviteCard } from "@/components/InviteCard";
 import { isEnabled } from "@/lib/modules";
 import { daysUntil, statusFor } from "@/lib/deadlines";
 import { formatDate } from "@/lib/format";
@@ -48,12 +49,12 @@ export default async function AdminStaffPage() {
           subtitle="Fahrzeuge werden auf der jeweiligen Fahrzeugseite über die Mitarbeiter-Nummer zugewiesen."
         />
 
-        <Card title="Firmen-Code weitergeben">
-          <p className="text-sm text-muted">
-            Mitarbeiter registrieren sich unter <code>/registrieren</code> mit diesem Code
-            und erhalten automatisch eine fortlaufende Mitarbeiter-Nummer.
-          </p>
-          <p className="mt-2 font-mono text-lg tracking-widest">{company?.join_code ?? "—"}</p>
+        <Card title="Mitarbeiter einladen">
+          {company?.join_code ? (
+            <InviteCard joinCode={company.join_code} />
+          ) : (
+            <EmptyState>Kein Firmen-Code vorhanden.</EmptyState>
+          )}
         </Card>
 
         {staffList.length === 0 ? (

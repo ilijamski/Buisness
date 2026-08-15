@@ -132,6 +132,114 @@ export async function createEntry(
   return { error: null, success: true };
 }
 
+/**
+ * Eigenen Eintrag korrigieren oder löschen.
+ * Ob das erlaubt ist, entscheidet die RLS-Policy (eigener Eintrag, max. 24 h alt)
+ * — hier wird nichts zusätzlich geprüft, damit es nur eine Wahrheit gibt.
+ */
+export async function updateEntry(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const supabase = await createClient();
+
+  const entryId = String(formData.get("entry_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  const cost = Number(String(formData.get("cost") ?? "0").replace(",", "."));
+  const note = String(formData.get("note") ?? "").trim();
+  const date = String(formData.get("date") ?? "");
+  const type = String(formData.get("type") ?? "");
+
+  if (!entryId) return { error: "Eintrag fehlt.", success: false };
+  if (!ENTRY_TYPES.includes(type as EntryType)) {
+    return { error: "Ungültiger Eintragstyp.", success: false };
+  }
+  if (Number.isNaN(cost) || cost < 0) {
+    return { error: "Bitte einen gültigen Betrag angeben.", success: false };
+  }
+
+  const { data, error } = await supabase
+    .from("entries")
+    .update({ type: type as EntryType, cost, note: note || null, date })
+    .eq("id", entryId)
+    .select("id");
+
+  if (error) {
+    return { error: `Änderung fehlgeschlagen: ${error.message}`, success: false };
+  }
+  // Leeres Ergebnis heißt: die Policy hat die Zeile ausgefiltert.
+  if (!data || data.length === 0) {
+    return {
+      error: "Dieser Eintrag kann nicht mehr geändert werden. Bitte wende dich an einen Admin.",
+      success: false,
+    };
+  }
+
+  revalidatePath(`/fahrzeuge/${vehicleId}`);
+  return { error: null, success: true };
+}
+
+export async function deleteEntry(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const supabase = await createClient();
+
+  const entryId = String(formData.get("entry_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!entryId) return { error: "Eintrag fehlt.", success: false };
+
+  const { data, error } = await supabase
+    .from("entries")
+    .delete()
+    .eq("id", entryId)
+    .select("id");
+
+  if (error) {
+    return { error: `Löschen fehlgeschlagen: ${error.message}`, success: false };
+  }
+  if (!data || data.length === 0) {
+    return {
+      error: "Dieser Eintrag kann nicht mehr gelöscht werden. Bitte wende dich an einen Admin.",
+      success: false,
+    };
+  }
+
+  revalidatePath(`/fahrzeuge/${vehicleId}`);
+  revalidatePath("/admin");
+  return { error: null, success: true };
+}
+
+export async function deleteLogbookEntry(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const supabase = await createClient();
+
+  const tripId = String(formData.get("trip_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!tripId) return { error: "Fahrt fehlt.", success: false };
+
+  const { data, error } = await supabase
+    .from("logbook_entries")
+    .delete()
+    .eq("id", tripId)
+    .select("id");
+
+  if (error) {
+    return { error: `Löschen fehlgeschlagen: ${error.message}`, success: false };
+  }
+  if (!data || data.length === 0) {
+    return {
+      error: "Diese Fahrt kann nicht mehr gelöscht werden. Bitte wende dich an einen Admin.",
+      success: false,
+    };
+  }
+
+  revalidatePath(`/fahrzeuge/${vehicleId}`);
+  return { error: null, success: true };
+}
+
 /** Fahrtenbucheintrag (dienstlich / privat / Arbeitsweg). */
 export async function createLogbookEntry(
   _prevState: ActionState,

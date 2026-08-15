@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { uploadDocument } from "@/app/fahrzeuge/actions";
 import { Button, Field, Notice } from "@/components/ui";
 import { idleState } from "@/lib/action-state";
+import { compressFormFile } from "@/lib/image";
 
 export function DocumentForm({ vehicleId }: { vehicleId: string }) {
   const [state, formAction, pending] = useActionState(uploadDocument, idleState);
@@ -13,8 +14,13 @@ export function DocumentForm({ vehicleId }: { vehicleId: string }) {
     if (state.success) formRef.current?.reset();
   }, [state.success]);
 
+  async function submit(formData: FormData) {
+    await compressFormFile(formData, "file");
+    formAction(formData);
+  }
+
   return (
-    <form ref={formRef} action={formAction} className="space-y-3">
+    <form ref={formRef} action={submit} className="space-y-3">
       <input type="hidden" name="vehicle_id" value={vehicleId} />
 
       <div className="grid gap-3 sm:grid-cols-2">

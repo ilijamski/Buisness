@@ -160,6 +160,32 @@ export default async function AdminPage() {
         <Card title="Flotte">
           <VehicleList vehicles={vehicleList} config={config} driverNames={driverNames} />
         </Card>
+
+        <Card title="Export">
+          <p className="mb-3 text-sm text-muted">
+            Als CSV für Excel oder den Steuerberater (Semikolon-getrennt).
+          </p>
+          {/* eslint-disable @next/next/no-html-link-for-pages --
+              Downloads brauchen echte Navigation; <Link> würde clientseitig
+              routen und die Datei nie ausliefern. */}
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/export/eintraege"
+              className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
+            >
+              Einträge exportieren
+            </a>
+            {isEnabled(config, "logbook") && (
+              <a
+                href="/export/fahrtenbuch"
+                className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
+              >
+                Fahrtenbuch exportieren
+              </a>
+            )}
+          </div>
+          {/* eslint-enable @next/next/no-html-link-for-pages */}
+        </Card>
       </main>
     </>
   );

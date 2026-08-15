@@ -93,6 +93,21 @@ export function PreferencesForm({
       <label className="flex items-start gap-2.5">
         <input
           type="checkbox"
+          name="push_reminders"
+          defaultChecked={settings.push_reminders}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="block text-sm font-medium">Push-Benachrichtigungen</span>
+          <span className="block text-xs text-muted">
+            Meldung aufs Gerät bei fälligen Fristen.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-2.5">
+        <input
+          type="checkbox"
           name="compact_lists"
           defaultChecked={settings.compact_lists}
           onChange={(e) => applyCompact(e.target.checked)}

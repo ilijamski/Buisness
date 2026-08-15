@@ -10,10 +10,12 @@ import { EntryForm } from "@/components/forms/EntryForm";
 import { LogbookForm } from "@/components/forms/LogbookForm";
 import { WorkshopForm } from "@/components/forms/WorkshopForm";
 import { DocumentForm } from "@/components/forms/DocumentForm";
+import { EntryRowActions } from "@/components/forms/EntryRowActions";
 import { vehicleDeadlines, deadlineText } from "@/lib/deadlines";
 import { isEnabled, isRequired, MODULES } from "@/lib/modules";
 import { getSignedUrls, RECEIPTS_BUCKET, DOCUMENTS_BUCKET } from "@/lib/receipts";
 import { DEFAULT_USER_SETTINGS, type UserSettings } from "@/lib/settings";
+import { isWithinCorrectionWindow } from "@/lib/corrections";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type {
   AssignmentWithDriver,
@@ -113,6 +115,12 @@ export default async function VehiclePage({
 
   const driverName =
     currentAssignment?.profiles?.full_name || currentAssignment?.profiles?.email || null;
+
+  // Korrekturfenster wie in der RLS-Policy: Admin immer, sonst eigener
+  // Eintrag und höchstens 24 Stunden alt.
+  const canCorrect = (entry: Entry) =>
+    isAdmin ||
+    (entry.author_id === profile.id && isWithinCorrectionWindow(entry.created_at));
 
   // Stammdaten aller aktiven Module, die tatsächlich einen Wert haben.
   const detailItems = MODULES.filter((m) => isEnabled(config, m.key))
@@ -250,6 +258,11 @@ export default async function VehiclePage({
                         </td>
                         <td className="py-2 text-right font-medium whitespace-nowrap">
                           {formatCurrency(entry.cost)}
+                          {canCorrect(entry) && (
+                            <div className="mt-1 font-normal">
+                              <EntryRowActions entry={entry} vehicleId={id} />
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

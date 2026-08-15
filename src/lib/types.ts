@@ -245,7 +245,18 @@ export type Database = {
         email_reminders: boolean;
         default_trip_type: TripType;
         compact_lists: boolean;
+        push_reminders: boolean;
         updated_at: string;
+      }>;
+      push_subscriptions: Table<{
+        id: string;
+        user_id: string;
+        platform: "web" | "ios" | "android";
+        endpoint: string;
+        p256dh: string | null;
+        auth: string | null;
+        user_agent: string | null;
+        created_at: string;
       }>;
       reminder_log: Table<{
         subject_type: "vehicle" | "profile";

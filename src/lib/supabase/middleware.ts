@@ -30,10 +30,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  // Rechtstexte müssen auch ohne Anmeldung erreichbar sein.
+  // Rechtstexte und die Passwort-Wiederherstellung müssen auch ohne
+  // Anmeldung erreichbar sein.
   const isPublic =
     path === "/login" ||
     path === "/registrieren" ||
+    path === "/passwort-vergessen" ||
     path.startsWith("/auth") ||
     path.startsWith("/rechtliches");
 

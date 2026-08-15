@@ -2,7 +2,7 @@ import { requireAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle } from "@/components/ui";
-import { VehicleList } from "@/components/VehicleList";
+import { VehicleSearch } from "@/components/VehicleSearch";
 import { VehicleForm } from "@/components/VehicleForm";
 import type { AssignmentWithDriver, Vehicle } from "@/lib/types";
 
@@ -37,7 +37,7 @@ export default async function AdminVehiclesPage() {
         />
 
         <Card title="Flotte">
-          <VehicleList
+          <VehicleSearch
             vehicles={(vehicles as Vehicle[] | null) ?? []}
             config={config}
             driverNames={driverNames}

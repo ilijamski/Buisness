@@ -7,6 +7,7 @@ import { PreferencesForm } from "@/components/settings/PreferencesForm";
 import { ProfileForm, PasswordForm, CompanyForm } from "@/components/settings/AccountForms";
 import { DeleteAccount } from "@/components/settings/DeleteAccount";
 import { InstallHint } from "@/components/settings/InstallHint";
+import { PushToggle } from "@/components/settings/PushToggle";
 import { signOut } from "@/app/login/actions";
 import { signOutEverywhere } from "./actions";
 import { DEFAULT_USER_SETTINGS, APP_VERSION, type UserSettings } from "@/lib/settings";
@@ -47,6 +48,10 @@ export default async function SettingsPage() {
 
         <Card title="Darstellung & Erfassung">
           <PreferencesForm settings={settings} />
+        </Card>
+
+        <Card title="Push-Benachrichtigungen">
+          <PushToggle vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""} />
         </Card>
 
         <Card title="App installieren">
