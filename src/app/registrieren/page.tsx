@@ -11,7 +11,7 @@ import {
 import { Button, Field, Notice } from "@/components/ui";
 import { OAuthButtons } from "@/components/OAuthButtons";
 
-const initialState: RegisterState = { error: null };
+const initialState: RegisterState = { error: null, sentTo: null };
 
 type Mode = "company" | "employee";
 
@@ -33,6 +33,33 @@ function RegisterForm() {
   const [mode, setMode] = useState<Mode>(invitedCode ? "employee" : "company");
   const action = mode === "company" ? registerCompany : registerEmployee;
   const [state, formAction, pending] = useActionState(action, initialState);
+
+  // Bei aktiver E-Mail-Bestätigung entsteht noch keine Sitzung. Das Formular
+  // durch den Hinweis auf das Postfach zu ersetzen ist hier wichtiger als es
+  // aussieht: sonst liefe die Weiterleitung ins Leere und der Login würde die
+  // gerade Registrierten wortlos zurückweisen.
+  if (state.sentTo) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+        <h1 className="text-xl font-semibold">Fast geschafft</h1>
+        <p className="mt-3 text-sm">
+          Wir haben eine Bestätigung an <strong>{state.sentTo}</strong>{" "}
+          geschickt. Öffne die Mail und klick auf den Link — danach bist du
+          direkt angemeldet.
+        </p>
+        <p className="mt-3 text-sm text-muted">
+          Nichts angekommen? Sieh im Spam-Ordner nach. Der Link gilt 24 Stunden;
+          danach kannst du dich einfach erneut registrieren.
+        </p>
+        <p className="mt-6 text-center text-sm text-muted">
+          Schon bestätigt?{" "}
+          <Link href="/login" className="text-accent underline">
+            Zum Login
+          </Link>
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
