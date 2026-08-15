@@ -6,8 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RECEIPTS_BUCKET, DOCUMENTS_BUCKET } from "@/lib/receipts";
 import type { DocumentKind, EntryType, TripType } from "@/lib/types";
 
-export type ActionState = { error: string | null; success: boolean };
-export const idleState: ActionState = { error: null, success: false };
+import type { ActionState } from "@/lib/action-state";
 
 const ENTRY_TYPES: EntryType[] = [
   "tanken",

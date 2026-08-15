@@ -6,9 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { MODULES } from "@/lib/modules";
 import type { Vehicle } from "@/lib/types";
 
-export type ActionState = { error: string | null; success: boolean };
-
-export const idleState: ActionState = { error: null, success: false };
+import type { ActionState } from "@/lib/action-state";
 
 /** Wandelt einen Formularwert je Feldtyp in einen DB-tauglichen Wert. */
 function parseFieldValue(
@@ -142,7 +140,7 @@ export async function saveCompanyModules(
     return { error: `Speichern fehlgeschlagen: ${error.message}`, success: false };
   }
 
-  revalidatePath("/admin/einstellungen");
+  revalidatePath("/admin/module");
   revalidatePath("/admin");
   revalidatePath("/mitarbeiter");
   return { error: null, success: true };

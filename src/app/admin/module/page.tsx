@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { PageTitle, Card } from "@/components/ui";
 import { ModuleSettingsForm } from "@/components/ModuleSettingsForm";
 
-export default async function SettingsPage() {
+export default async function ModulePage() {
   const { profile, company } = await requireAdmin();
   const config = await loadCompanyModules(profile.company_id!);
 
@@ -13,7 +13,7 @@ export default async function SettingsPage() {
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
         <PageTitle
-          title="Einstellungen"
+          title="Module"
           subtitle="Grundeinstellung für alle Fahrzeuge. Einzelne Fahrzeuge können davon abweichen."
         />
 

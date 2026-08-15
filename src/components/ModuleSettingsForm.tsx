@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveCompanyModules, idleState } from "@/app/admin/actions";
+import { saveCompanyModules } from "@/app/admin/actions";
 import { Button, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 import {
   MODULES,
   MODULE_GROUP_LABELS,

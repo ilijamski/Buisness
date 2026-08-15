@@ -17,7 +17,7 @@ export function OnboardingForm() {
           type="button"
           onClick={() => setMode("company")}
           className={`flex-1 rounded-l px-3 py-2 ${
-            mode === "company" ? "bg-primary font-medium text-white" : "bg-bg hover:bg-page"
+            mode === "company" ? "bg-primary font-medium text-primary-fg" : "bg-bg hover:bg-page"
           }`}
         >
           Firma anlegen
@@ -26,7 +26,7 @@ export function OnboardingForm() {
           type="button"
           onClick={() => setMode("employee")}
           className={`flex-1 rounded-r border-l border-border-strong px-3 py-2 ${
-            mode === "employee" ? "bg-primary font-medium text-white" : "bg-bg hover:bg-page"
+            mode === "employee" ? "bg-primary font-medium text-primary-fg" : "bg-bg hover:bg-page"
           }`}
         >
           Firma beitreten

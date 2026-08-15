@@ -17,7 +17,10 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const REMINDER_WINDOW_DAYS = 30;
+/** Genutzt, wenn eine Firma keine eigene Vorlaufzeit gesetzt hat. */
+const DEFAULT_LEAD_DAYS = 30;
+/** Obergrenze für die Vorabfrage; je Firma wird danach exakt gefiltert. */
+const MAX_LEAD_DAYS = 365;
 
 /**
  * Fristen-Module: Spalte in `vehicles` -> Modul-Key + Anzeigename.
@@ -85,16 +88,30 @@ Deno.serve(async () => {
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const windowEnd = new Date(today);
-    windowEnd.setUTCDate(windowEnd.getUTCDate() + REMINDER_WINDOW_DAYS);
+    windowEnd.setUTCDate(windowEnd.getUTCDate() + MAX_LEAD_DAYS);
 
     const todayStr = toDateString(today);
     const windowEndStr = toDateString(windowEnd);
 
-    // Modul-Einstellungen laden (Firma + Fahrzeug-Overrides).
-    const [{ data: companySettings }, { data: vehicleSettings }] = await Promise.all([
-      supabase.from("company_module_settings").select("company_id, module_key, enabled"),
-      supabase.from("vehicle_module_settings").select("vehicle_id, module_key, enabled"),
-    ]);
+    // Modul-Einstellungen und firmenspezifische Vorlaufzeiten laden.
+    const [{ data: companySettings }, { data: vehicleSettings }, { data: companies }] =
+      await Promise.all([
+        supabase.from("company_module_settings").select("company_id, module_key, enabled"),
+        supabase.from("vehicle_module_settings").select("vehicle_id, module_key, enabled"),
+        supabase.from("companies").select("id, reminder_lead_days"),
+      ]);
+
+    const leadDaysByCompany = new Map(
+      (companies ?? []).map((c) => [
+        c.id as string,
+        (c.reminder_lead_days as number | null) ?? DEFAULT_LEAD_DAYS,
+      ]),
+    );
+
+    /** Frist liegt im von der Firma eingestellten Vorlauf-Fenster. */
+    function withinLeadWindow(companyId: string, daysLeft: number): boolean {
+      return daysLeft <= (leadDaysByCompany.get(companyId) ?? DEFAULT_LEAD_DAYS);
+    }
 
     const companyDisabled = new Set(
       (companySettings ?? [])
@@ -132,6 +149,8 @@ Deno.serve(async () => {
         if (!moduleActive(vehicle.company_id, vehicle.id, deadline.moduleKey)) continue;
 
         const daysLeft = daysBetween(today, value);
+        if (!withinLeadWindow(vehicle.company_id, daysLeft)) continue;
+
         pending.push({
           subjectType: "vehicle",
           subjectId: vehicle.id,
@@ -162,6 +181,8 @@ Deno.serve(async () => {
 
       const dueDate = driver.license_expires_on as string;
       const daysLeft = daysBetween(today, dueDate);
+      if (!withinLeadWindow(driver.company_id, daysLeft)) continue;
+
       const name = driver.full_name || driver.email;
       pending.push({
         subjectType: "profile",
@@ -200,16 +221,19 @@ Deno.serve(async () => {
       return Response.json({ sent: 0, due: pending.length }, { status: 200 });
     }
 
-    // Admin-Empfänger je Firma.
-    const { data: admins, error: adminsError } = await supabase
-      .from("profiles")
-      .select("email, company_id")
-      .eq("role", "admin");
+    // Admin-Empfänger je Firma, ohne alle, die E-Mail-Erinnerungen abbestellt haben.
+    const [{ data: admins, error: adminsError }, { data: optOuts }] = await Promise.all([
+      supabase.from("profiles").select("id, email, company_id").eq("role", "admin"),
+      supabase.from("user_settings").select("user_id").eq("email_reminders", false),
+    ]);
     if (adminsError) throw adminsError;
+
+    const unsubscribed = new Set((optOuts ?? []).map((row) => row.user_id as string));
 
     const recipientsByCompany = new Map<string, string[]>();
     for (const admin of admins ?? []) {
       if (!admin.company_id || !admin.email) continue;
+      if (unsubscribed.has(admin.id as string)) continue;
       const list = recipientsByCompany.get(admin.company_id) ?? [];
       list.push(admin.email);
       recipientsByCompany.set(admin.company_id, list);

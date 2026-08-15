@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { assignDriver, unassignDriver, idleState } from "@/app/admin/actions";
+import { assignDriver, unassignDriver } from "@/app/admin/actions";
 import { Button, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 
 export function AssignDriverForm({
   vehicleId,

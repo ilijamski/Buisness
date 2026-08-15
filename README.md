@@ -20,7 +20,7 @@ unabhängig voneinander registrieren; jede Firma sieht nur ihre eigenen Daten.
 ## Funktionsbausteine (Module)
 
 Alle Bausteine sind optional. Der Admin schaltet sie unter
-**Einstellungen** an/aus (`Aktiv`) und legt fest, ob die zugehörigen Felder
+**Module** an/aus (`Aktiv`) und legt fest, ob die zugehörigen Felder
 Pflicht sind (`Pflicht`). Das ist die **Grundeinstellung für alle Fahrzeuge**;
 auf jeder Fahrzeugseite lässt sich davon **pro Fahrzeug abweichen**
 (`erben` / `ja` / `nein`).
@@ -37,6 +37,35 @@ Alle Module sind in [`src/lib/modules.ts`](./src/lib/modules.ts) definiert —
 Felder, Gruppen und überwachte Fristen kommen aus dieser einen Datei, sowohl
 für die Formulare als auch für die Fristenübersicht.
 
+## Bedienung
+
+Unten liegt eine feste Leiste für den Bereichswechsel (auf großen Bildschirmen
+wandert die Navigation in den Kopfbereich):
+
+- **Admin:** Übersicht · Fahrzeuge · Team · Mehr
+- **Mitarbeiter:** Fahrzeuge · Profil · Mehr
+
+Unter **Einstellungen** finden sich Darstellung (hell/dunkel/wie das Gerät),
+Standard-Fahrtart, E-Mail-Erinnerungen, Listendichte, Profil, Passwort ändern,
+Abmelden (auch auf allen Geräten), Kontolöschung sowie Datenschutz, Impressum
+und Nutzungsbedingungen. Admins verwalten dort zusätzlich Firmendaten und die
+Vorlaufzeit für Erinnerungen.
+
+## Installation als App (PWA)
+
+Die App ist installierbar und läuft danach im eigenen Fenster ohne Browserleiste:
+
+- **Android/Chrome/Edge:** Einstellungen → *Als App installieren*
+- **iOS/Safari:** Teilen → *Zum Home-Bildschirm*
+- **Desktop:** Installationssymbol in der Adressleiste
+
+Manifest, Icons und Service Worker liegen in [`public/`](./public). Der Service
+Worker cacht bewusst **nur** statische Dateien und eine Offline-Seite —
+Fuhrparkdaten werden nie zwischengespeichert. Für eine Veröffentlichung in
+App Store oder Play Store lässt sich die PWA zusätzlich mit
+[Capacitor](https://capacitorjs.com) oder
+[Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) verpacken.
+
 ## 1. Supabase-Projekt einrichten
 
 1. Projekt auf [supabase.com](https://supabase.com) anlegen.
@@ -51,6 +80,7 @@ für die Formulare als auch für die Fristenübersicht.
    | `0004_companies_modules_fleet.sql` | Firmenkonten, Nummern, Fahrerzuordnung, Modul-Einstellungen, neue RLS |
    | `0005_logbook_documents.sql` | Fahrtenbuch, Werkstatt, Tankkarten, Dokumente + Bucket |
    | `0006_reminders.sql` | Erinnerungen für alle Fristen-Module |
+   | `0007_settings.sql` | Benutzer-Präferenzen, Firmeneinstellungen, Kontolöschung |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
@@ -122,6 +152,25 @@ Den `service-role-key` besser über
 [Supabase Vault](https://supabase.com/docs/guides/database/vault) einbinden
 statt im Klartext zu hinterlegen.
 
+Die **Vorlaufzeit** stellt jeder Admin unter *Einstellungen → Firma* ein
+(Standard 30 Tage); wer keine Erinnerungen möchte, schaltet sie unter
+*Einstellungen → Darstellung & Erfassung* für sich ab.
+
+## 5. Kontolöschung (Edge Function)
+
+Damit Nutzer ihr Konto selbst löschen können (Art. 17 DSGVO), muss die Function
+`delete-account` deployt sein — sie braucht den Service-Role-Key, den die App im
+Browser nicht haben darf:
+
+```bash
+supabase functions deploy delete-account
+```
+
+Die Function löscht immer nur das Konto des Aufrufers (identifiziert über dessen
+JWT), entfernt seine Belege aus dem Storage und blockt den letzten Admin einer
+Firma mit weiteren Mitgliedern. Ist der Nutzer das letzte Firmenmitglied, wird
+die Firma samt aller Daten gelöscht.
+
 ## Zugriffsmodell (Row Level Security)
 
 Alles ist an die Firma gebunden; Fahrzeugzugriff läuft über die
@@ -137,6 +186,7 @@ zugewiesener Fahrer.
 | `documents` | lesen & hochladen (eigenes Fahrzeug) | alles, inkl. löschen |
 | `fuel_cards` | Karte des eigenen Fahrzeugs | alle Karten |
 | `profiles` | eigenes Profil | alle Profile der Firma |
+| `user_settings` | nur eigene Präferenzen | nur eigene Präferenzen |
 | Modul-Einstellungen | lesen | schreiben |
 | Storage `receipts` / `documents` | eigener Ordner bzw. eigenes Fahrzeug | alles |
 
@@ -145,18 +195,22 @@ Fremde Firmen sind auf Datenbankebene unerreichbar — nicht nur in der UI.
 ## Projektstruktur
 
 ```
+public/                        Manifest, Icons, Service Worker, Offline-Seite
 supabase/migrations/           Schema, RLS-Policies, Storage-Buckets
-supabase/functions/            Edge Function für Fristen-Erinnerungen
+supabase/functions/            Fristen-Erinnerungen und Kontolöschung
 src/lib/modules.ts             Zentrale Definition aller Module und Felder
 src/lib/deadlines.ts           Fristenberechnung und Status
+src/lib/settings.ts            Präferenzen, Theme-Schlüssel, App-Version
 src/lib/auth.ts                Session, Rollen, Modul-Auflösung
 src/lib/supabase/              Browser-/Server-/Proxy-Clients
 src/app/registrieren/          Firma anlegen oder per Code beitreten
 src/app/onboarding/            Firma nachträglich verbinden
-src/app/admin/                 Übersicht, Fahrzeuge, Mitarbeiter, Einstellungen
+src/app/admin/                 Übersicht, Fahrzeuge, Team, Module
 src/app/fahrzeuge/[id]/        Fahrzeug-Detailseite (alle Module)
 src/app/mitarbeiter/           Zugewiesene Fahrzeuge
-src/components/                UI-Bausteine und Formulare
+src/app/einstellungen/         Präferenzen, Konto, Firma, Rechtliches
+src/app/rechtliches/           Datenschutz, Impressum, Nutzungsbedingungen
+src/components/                UI-Bausteine, Navigation und Formulare
 src/proxy.ts                   Next.js Proxy (ehem. Middleware) für Session-/Route-Schutz
 ```
 

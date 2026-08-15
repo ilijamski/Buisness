@@ -19,7 +19,10 @@ export function Card({
           {action}
         </header>
       )}
-      <div className="p-4">{children}</div>
+      {/* data-compact-target: greift die Dichte-Einstellung aus den Präferenzen ab. */}
+      <div className="p-4" data-compact-target>
+        {children}
+      </div>
     </section>
   );
 }
@@ -52,7 +55,7 @@ export function Button({
   variant?: "primary" | "secondary" | "danger";
 }) {
   const styles = {
-    primary: "bg-primary text-white hover:bg-primary-hover border-primary",
+    primary: "bg-primary text-primary-fg hover:bg-primary-hover border-primary",
     secondary: "bg-bg text-fg hover:bg-page border-border-strong",
     danger: "bg-bg text-danger hover:bg-danger-soft border-border-strong",
   }[variant];

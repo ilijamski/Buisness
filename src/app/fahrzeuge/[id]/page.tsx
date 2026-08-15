@@ -13,6 +13,7 @@ import { DocumentForm } from "@/components/forms/DocumentForm";
 import { vehicleDeadlines, deadlineText } from "@/lib/deadlines";
 import { isEnabled, isRequired, MODULES } from "@/lib/modules";
 import { getSignedUrls, RECEIPTS_BUCKET, DOCUMENTS_BUCKET } from "@/lib/receipts";
+import { DEFAULT_USER_SETTINGS, type UserSettings } from "@/lib/settings";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type {
   AssignmentWithDriver,
@@ -58,6 +59,7 @@ export default async function VehiclePage({
     { data: documents },
     { data: assignment },
     { data: overrides },
+    { data: storedSettings },
   ] = await Promise.all([
     supabase.from("entries").select("*").eq("vehicle_id", id).order("date", { ascending: false }),
     supabase
@@ -85,7 +87,13 @@ export default async function VehiclePage({
     isAdmin
       ? supabase.from("vehicle_module_settings").select("*").eq("vehicle_id", id)
       : Promise.resolve({ data: [] as VehicleModuleSetting[] }),
+    supabase.from("user_settings").select("*").eq("user_id", profile.id).maybeSingle(),
   ]);
+
+  const userSettings = {
+    ...DEFAULT_USER_SETTINGS,
+    ...((storedSettings as UserSettings | null) ?? {}),
+  };
 
   const entryList = (entries as Entry[] | null) ?? [];
   const logbookList = (logbook as LogbookEntry[] | null) ?? [];
@@ -255,7 +263,11 @@ export default async function VehiclePage({
         {isEnabled(config, "logbook") && (
           <>
             <Card title="Fahrt eintragen">
-              <LogbookForm vehicleId={id} lastMileage={vehicle.current_mileage} />
+              <LogbookForm
+                vehicleId={id}
+                lastMileage={vehicle.current_mileage}
+                defaultTripType={userSettings.default_trip_type}
+              />
             </Card>
 
             <Card title="Fahrtenbuch">

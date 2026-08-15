@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveLicense, idleState } from "@/app/admin/actions";
+import { saveLicense } from "@/app/admin/actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 import type { Profile } from "@/lib/types";
 
 export function LicenseForm({ profile }: { profile: Profile }) {

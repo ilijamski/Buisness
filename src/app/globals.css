@@ -9,6 +9,7 @@
   --border-strong: #c2c2bb;
   --primary: #2b2b28;
   --primary-hover: #171715;
+  --primary-fg: #ffffff;
   --accent: #8a5a10;
   --accent-bg: #f2a93b;
   --accent-soft: #fdf3e2;
@@ -16,6 +17,27 @@
   --danger-soft: #fbeaea;
   --ok: #2f6d3f;
   --ok-soft: #eaf4ec;
+}
+
+/* Dunkle Variante: gleiche Rollen, nur andere Werte — die Komponenten
+   verwenden ausschließlich Tokens und brauchen keine eigenen Dark-Klassen. */
+:root[data-theme="dark"] {
+  --page: #131315;
+  --bg: #1b1b1e;
+  --fg: #ededea;
+  --muted: #a0a09a;
+  --border: #303035;
+  --border-strong: #43434a;
+  --primary: #ededea;
+  --primary-hover: #ffffff;
+  --primary-fg: #1b1b1e;
+  --accent: #f0b357;
+  --accent-bg: #f2a93b;
+  --accent-soft: #33280f;
+  --danger: #f08a8a;
+  --danger-soft: #3a1f1f;
+  --ok: #7fc294;
+  --ok-soft: #1d3324;
 }
 
 @theme inline {
@@ -27,6 +49,7 @@
   --color-border-strong: var(--border-strong);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
   --color-accent: var(--accent);
   --color-accent-bg: var(--accent-bg);
   --color-accent-soft: var(--accent-soft);
@@ -95,4 +118,18 @@ textarea:disabled {
 table {
   border-collapse: collapse;
   width: 100%;
+}
+
+/* Kompakte Listen aus den Präferenzen: weniger Luft in den Karteninhalten. */
+:root[data-compact="true"] [data-compact-target] {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Platz für die feste untere Leiste — nur auf Seiten, die sie zeigen.
+   Ohne :has()-Unterstützung bleibt lediglich etwas weniger Luft am Seitenende. */
+@media (max-width: 767px) {
+  body:has(nav[aria-label="Bereiche"]) {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
 }

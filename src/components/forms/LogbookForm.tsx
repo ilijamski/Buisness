@@ -1,15 +1,19 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createLogbookEntry, idleState } from "@/app/fahrzeuge/actions";
+import { createLogbookEntry } from "@/app/fahrzeuge/actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
+import type { TripType } from "@/lib/types";
 
 export function LogbookForm({
   vehicleId,
   lastMileage,
+  defaultTripType,
 }: {
   vehicleId: string;
   lastMileage: number | null;
+  defaultTripType: TripType;
 }) {
   const [state, formAction, pending] = useActionState(createLogbookEntry, idleState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -29,7 +33,7 @@ export function LogbookForm({
         </Field>
 
         <Field label="Fahrtart" required>
-          <select name="trip_type" required defaultValue="dienstlich">
+          <select name="trip_type" required defaultValue={defaultTripType}>
             <option value="dienstlich">Dienstlich</option>
             <option value="arbeitsweg">Arbeitsweg</option>
             <option value="privat">Privat</option>

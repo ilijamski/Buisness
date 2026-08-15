@@ -30,8 +30,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // Rechtstexte müssen auch ohne Anmeldung erreichbar sein.
   const isPublic =
-    path === "/login" || path === "/registrieren" || path.startsWith("/auth");
+    path === "/login" ||
+    path === "/registrieren" ||
+    path.startsWith("/auth") ||
+    path.startsWith("/rechtliches");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

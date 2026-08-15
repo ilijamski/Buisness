@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createEntry, idleState } from "@/app/fahrzeuge/actions";
+import { createEntry } from "@/app/fahrzeuge/actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 
 export function EntryForm({
   vehicleId,

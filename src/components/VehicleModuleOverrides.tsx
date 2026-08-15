@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveVehicleModules, idleState } from "@/app/admin/actions";
+import { saveVehicleModules } from "@/app/admin/actions";
 import { Button, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 import { MODULES, MODULE_GROUP_LABELS, type ModuleGroup } from "@/lib/modules";
 import type { VehicleModuleSetting } from "@/lib/types";
 

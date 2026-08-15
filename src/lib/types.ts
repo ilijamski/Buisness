@@ -23,6 +23,9 @@ export type Company = {
   id: string;
   name: string;
   join_code: string;
+  reminder_lead_days: number;
+  contact_email: string | null;
+  contact_address: string | null;
   created_at: string;
 };
 
@@ -236,6 +239,14 @@ export type Database = {
       >;
       company_module_settings: Table<CompanyModuleSetting, CompanyModuleSetting>;
       vehicle_module_settings: Table<VehicleModuleSetting, VehicleModuleSetting>;
+      user_settings: Table<{
+        user_id: string;
+        theme: "light" | "dark" | "system";
+        email_reminders: boolean;
+        default_trip_type: TripType;
+        compact_lists: boolean;
+        updated_at: string;
+      }>;
       reminder_log: Table<{
         subject_type: "vehicle" | "profile";
         subject_id: string;
@@ -253,6 +264,18 @@ export type Database = {
           p_full_name: string | null;
         };
         Returns: string;
+      };
+      can_delete_own_account: {
+        Args: Record<string, never>;
+        Returns: {
+          allowed: boolean;
+          reason?: string;
+          deletes_company?: boolean;
+        };
+      };
+      set_member_role: {
+        Args: { p_profile_id: string; p_role: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

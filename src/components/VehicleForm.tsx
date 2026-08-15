@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createVehicle, updateVehicle, idleState } from "@/app/admin/actions";
+import { createVehicle, updateVehicle } from "@/app/admin/actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 import { ModuleFields } from "@/components/ModuleFields";
 import type { ModuleConfig } from "@/lib/modules";
 import type { Vehicle } from "@/lib/types";

@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createWorkshopRecord, idleState } from "@/app/fahrzeuge/actions";
+import { createWorkshopRecord } from "@/app/fahrzeuge/actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { idleState } from "@/lib/action-state";
 
 export function WorkshopForm({ vehicleId }: { vehicleId: string }) {
   const [state, formAction, pending] = useActionState(createWorkshopRecord, idleState);
