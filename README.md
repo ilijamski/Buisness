@@ -84,6 +84,7 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
    | `0008_corrections_push_invites.sql` | Korrekturfenster für eigene Einträge, Push-Abos |
    | `0009_billing.sql` | Abo, Probemonat, Testcodes, Plattform-Admins |
    | `0010_platform_owner.sql` | Betreiber-Freigabeliste, dauerhafter Zugang für dessen Firma |
+   | `0011_platform_stats.sql` | Kennzahlen und Kundenliste für das Betreiber-Dashboard |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
@@ -169,9 +170,27 @@ Firmen, in denen ein Plattform-Admin Mitglied ist, haben **dauerhaft Zugang** �
 der Betreiber zahlt nicht für sein eigenes Produkt und wird nach dem Probemonat
 nicht ausgesperrt.
 
+### Betreiber-Dashboard
+
+Als Plattform-Admin steht `/plattform` zur Verfügung — mit Kennzahlen zum
+Geschäft:
+
+- **Monatlicher Umsatz** aus laufenden Abos, Jahrestarife anteilig umgelegt,
+  brutto und netto (Testphasen zählen nicht mit)
+- Zahlende Kunden je Tarif, laufende Testphasen, abgelaufene Zugänge,
+  Kündigungen und offene Zahlungen
+- Neue Firmen der letzten 30 Tage im Vergleich zum Vormonat
+- Kundenliste mit Vertragsstatus, Nutzer- und Fahrzeugzahl
+
+Die Auswertung läuft über zwei `security definer`-Funktionen
+(`platform_stats`, `platform_companies`), die **nur Aggregate und
+Vertragsdaten** liefern. Fahrzeugdetails, Fahrtenbücher, Belege und
+Mitarbeiterdaten der Kunden bleiben auch für den Betreiber unerreichbar —
+die RLS wird dafür bewusst nicht aufgeweicht.
+
 ### Testcodes
 
-Als Plattform-Admin steht `/plattform` zur Verfügung — dort lassen sich Codes im Format
+Ebenfalls unter `/plattform` — dort lassen sich Codes im Format
 `TEST-XXXXXXXX` erzeugen, mit frei wählbarer Dauer und Anzahl der Einlösungen.
 Die Codetabelle ist per RLS **nur für Plattform-Admins lesbar**; Firmen können
 Codes ausschließlich einlösen, nicht auflisten. Fehlermeldungen unterscheiden

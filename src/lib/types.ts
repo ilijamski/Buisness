@@ -38,6 +38,41 @@ export type Company = {
   created_at: string;
 };
 
+/** Aggregierte Kennzahlen für den Betreiber (siehe platform_stats()). */
+export type PlatformStats = {
+  companies_total: number;
+  companies_paying: number;
+  companies_trialing: number;
+  companies_past_due: number;
+  companies_expired: number;
+  companies_canceling: number;
+  new_companies_30d: number;
+  new_companies_prev30d: number;
+  plan_monthly: number;
+  plan_yearly: number;
+  mrr_gross_cents: number;
+  mrr_net_cents: number;
+  arr_gross_cents: number;
+  arr_net_cents: number;
+  users_total: number;
+  vehicles_total: number;
+  codes_redeemed: number;
+};
+
+export type PlatformCompany = {
+  id: string;
+  name: string;
+  subscription_status: SubscriptionStatus;
+  plan: "monthly" | "yearly" | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  has_access: boolean;
+  user_count: number;
+  vehicle_count: number;
+  created_at: string;
+};
+
 export type PromoCode = {
   code: string;
   grants_days: number;
@@ -337,6 +372,14 @@ export type Database = {
       is_platform_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      platform_stats: {
+        Args: Record<string, never>;
+        Returns: PlatformStats;
+      };
+      platform_companies: {
+        Args: Record<string, never>;
+        Returns: PlatformCompany[];
       };
       company_has_access: {
         Args: { p_company_id: string };

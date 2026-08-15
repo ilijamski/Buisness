@@ -4,8 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle, EmptyState, Badge } from "@/components/ui";
 import { PromoCodeForm } from "@/components/billing/PromoCodeForm";
+import { PlatformStats } from "@/components/billing/PlatformStats";
 import { formatDate } from "@/lib/format";
-import type { PromoCode } from "@/lib/types";
+import type {
+  PromoCode,
+  PlatformCompany,
+  PlatformStats as PlatformStatsType,
+} from "@/lib/types";
 
 /**
  * Betreiber-Bereich: Testcodes erzeugen und deren Nutzung verfolgen.
@@ -20,11 +25,12 @@ export default async function PlatformPage() {
 
   const supabase = await createClient();
 
-  // RLS gibt die Codeliste ohnehin nur Plattform-Admins frei.
-  const { data: codes } = await supabase
-    .from("promo_codes")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const [{ data: stats }, { data: companies }, { data: codes }] = await Promise.all([
+    supabase.rpc("platform_stats"),
+    supabase.rpc("platform_companies"),
+    // RLS gibt die Codeliste ohnehin nur Plattform-Admins frei.
+    supabase.from("promo_codes").select("*").order("created_at", { ascending: false }),
+  ]);
 
   const codeList = (codes as PromoCode[] | null) ?? [];
 
@@ -32,11 +38,20 @@ export default async function PlatformPage() {
     <>
       <Header profile={profile} company={company} />
 
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      {/* Breiter als die übrigen Seiten: die Kundentabelle braucht den Platz,
+          sonst wird die letzte Spalte abgeschnitten. */}
+      <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
         <PageTitle
-          title="Testcodes"
-          subtitle="Nur für den Betreiber sichtbar. Codes verlängern den kostenlosen Zeitraum einer Firma."
+          title="Betreiber-Dashboard"
+          subtitle="Nur für dich sichtbar: Kennzahlen, Kunden und Testcodes."
         />
+
+        {stats && (
+          <PlatformStats
+            stats={stats as PlatformStatsType}
+            companies={(companies as PlatformCompany[] | null) ?? []}
+          />
+        )}
 
         <Card title="Neuen Code erzeugen">
           <PromoCodeForm />
