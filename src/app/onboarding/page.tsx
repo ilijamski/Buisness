@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingForm } from "./OnboardingForm";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string }>;
+}) {
+  const { code } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -29,7 +34,7 @@ export default async function OnboardingPage() {
         Dein Konto ist noch keiner Firma zugeordnet. Lege eine Firma an oder tritt
         mit dem Code deines Admins bei.
       </p>
-      <OnboardingForm />
+      <OnboardingForm invitedCode={code?.trim().toUpperCase() ?? ""} />
     </main>
   );
 }

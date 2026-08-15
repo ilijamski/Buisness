@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 const initialState: LoginState = { error: null };
 
@@ -36,6 +37,10 @@ export default function LoginPage() {
           {pending ? "Anmelden…" : "Anmelden"}
         </Button>
       </form>
+
+      <div className="mt-4">
+        <OAuthButtons />
+      </div>
 
       <p className="mt-4 text-center text-sm text-muted">
         Noch kein Konto?{" "}

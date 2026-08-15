@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireSession, loadCompanyModules } from "@/lib/auth";
+import { requireActiveSession, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle, Notice, EmptyState } from "@/components/ui";
@@ -7,7 +7,7 @@ import { VehicleList } from "@/components/VehicleList";
 import type { Vehicle } from "@/lib/types";
 
 export default async function MitarbeiterPage() {
-  const { profile, company } = await requireSession();
+  const { profile, company } = await requireActiveSession();
   if (profile.role === "admin") {
     redirect("/admin");
   }

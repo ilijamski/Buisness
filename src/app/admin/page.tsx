@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin, loadCompanyModules } from "@/lib/auth";
+import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle, Badge, EmptyState, DataList } from "@/components/ui";
@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import type { AssignmentWithDriver, Entry, Profile, Vehicle } from "@/lib/types";
 
 export default async function AdminPage() {
-  const { profile, company } = await requireAdmin();
+  const { profile, company } = await requireActiveAdmin();
   const config = await loadCompanyModules(profile.company_id!);
   const supabase = await createClient();
 

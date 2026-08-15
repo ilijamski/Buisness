@@ -28,6 +28,31 @@ der nächsten Frist** oder **Siri-Kurzbefehle** („Kilometerstand eintragen").
 Für den **Play Store** ist die Lage entspannter: Eine Trusted Web Activity
 (Bubblewrap) oder dieselbe Capacitor-App wird dort regelmäßig akzeptiert.
 
+## Bezahlung: warum das Abo nicht in der App verkauft wird
+
+Apple verlangt nach Richtlinie **3.1.1** für digitale Käufe innerhalb der App
+die eigene In-App-Purchase-Abwicklung und behält 15–30 % ein. Deshalb ist die
+App so gebaut, wie es B2B-SaaS-Anbieter üblicherweise handhaben:
+
+- Das Abo wird **im Web** abgeschlossen (Stripe).
+- In der nativen App blendet `PlanPicker` die Kaufoberfläche aus und zeigt
+  nur den Hinweis, dass das Abo im Firmenkonto verwaltet wird.
+- Es gibt **keinen Link** und **keine Aufforderung** zum Kauf in der App —
+  genau das würde Apple beanstanden.
+
+Die Testcode-Einlösung bleibt sichtbar: Sie ist kein Kauf.
+
+> **Wichtig für die Review:** Apple prüft, ob die App auch ohne Kauf sinnvoll
+> nutzbar ist. Der 30-tägige Probemonat deckt das ab — lege dem Prüfer
+> zusätzlich einen Testcode und einen Demo-Zugang bereit, damit er nicht vor
+> einer Bezahlschranke steht.
+
+## Sign in with Apple
+
+Die App bietet Google-Login an — damit ist **Sign in with Apple auf iOS
+Pflicht** (Richtlinie 4.8). Beides ist eingebaut; die Einrichtung im Apple
+Developer Portal und in Supabase steht in der README.
+
 ## 1. Voraussetzungen
 
 - App unter fester HTTPS-Domain deployen (z. B. Vercel)

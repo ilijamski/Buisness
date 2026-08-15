@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveModules, type ModuleConfig } from "@/lib/modules";
+import { accessState } from "@/lib/billing";
 import type { Company, Profile } from "@/lib/types";
 
 export type Session = {
@@ -46,6 +47,31 @@ export async function requireSession(): Promise<Session> {
 
 export async function requireAdmin(): Promise<Session> {
   const session = await requireSession();
+  if (session.profile.role !== "admin") {
+    redirect("/mitarbeiter");
+  }
+  return session;
+}
+
+/**
+ * Wie requireSession, verlangt zusätzlich einen gültigen Zugang
+ * (Probemonat, Testcode oder bezahltes Abo).
+ *
+ * Ist er abgelaufen, geht es zur Abo-Seite — dort bleibt der Datenexport
+ * erreichbar, damit niemand von seinen eigenen Daten ausgesperrt wird.
+ */
+export async function requireActiveSession(): Promise<Session> {
+  const session = await requireSession();
+
+  if (!accessState(session.company).hasAccess) {
+    redirect("/abo?abgelaufen=1");
+  }
+
+  return session;
+}
+
+export async function requireActiveAdmin(): Promise<Session> {
+  const session = await requireActiveSession();
   if (session.profile.role !== "admin") {
     redirect("/mitarbeiter");
   }

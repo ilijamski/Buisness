@@ -10,6 +10,7 @@ function linksFor(role: Profile["role"]) {
         { href: "/admin/fahrzeuge", label: "Fahrzeuge" },
         { href: "/admin/mitarbeiter", label: "Team" },
         { href: "/admin/module", label: "Module" },
+        { href: "/abo", label: "Abo" },
         { href: "/einstellungen", label: "Einstellungen" },
       ]
     : [

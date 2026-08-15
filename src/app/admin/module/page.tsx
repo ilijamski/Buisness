@@ -1,10 +1,10 @@
-import { requireAdmin, loadCompanyModules } from "@/lib/auth";
+import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { Header } from "@/components/Header";
 import { PageTitle, Card } from "@/components/ui";
 import { ModuleSettingsForm } from "@/components/ModuleSettingsForm";
 
 export default async function ModulePage() {
-  const { profile, company } = await requireAdmin();
+  const { profile, company } = await requireActiveAdmin();
   const config = await loadCompanyModules(profile.company_id!);
 
   return (

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireSession, loadVehicleModules } from "@/lib/auth";
+import { requireActiveSession, loadVehicleModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle, Badge, DataList, EmptyState } from "@/components/ui";
@@ -39,7 +39,7 @@ export default async function VehiclePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { profile, company } = await requireSession();
+  const { profile, company } = await requireActiveSession();
   const supabase = await createClient();
 
   // RLS sorgt dafür, dass nur Admins und der zugewiesene Fahrer das Fahrzeug sehen.

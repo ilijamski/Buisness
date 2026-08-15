@@ -19,6 +19,8 @@ export type DocumentKind =
   | "nachweis"
   | "sonstiges";
 
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled";
+
 export type Company = {
   id: string;
   name: string;
@@ -26,6 +28,24 @@ export type Company = {
   reminder_lead_days: number;
   contact_email: string | null;
   contact_address: string | null;
+  subscription_status: SubscriptionStatus;
+  plan: "monthly" | "yearly" | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  created_at: string;
+};
+
+export type PromoCode = {
+  code: string;
+  grants_days: number;
+  max_uses: number;
+  used_count: number;
+  note: string | null;
+  expires_at: string | null;
+  active: boolean;
   created_at: string;
 };
 
@@ -248,6 +268,14 @@ export type Database = {
         push_reminders: boolean;
         updated_at: string;
       }>;
+      promo_codes: Table<PromoCode>;
+      promo_redemptions: Table<{
+        code: string;
+        company_id: string;
+        redeemed_by: string | null;
+        redeemed_at: string;
+      }>;
+      platform_admins: Table<{ user_id: string; created_at: string }>;
       push_subscriptions: Table<{
         id: string;
         user_id: string;
@@ -287,6 +315,32 @@ export type Database = {
       set_member_role: {
         Args: { p_profile_id: string; p_role: string };
         Returns: undefined;
+      };
+      redeem_promo_code: {
+        Args: { p_code: string };
+        Returns: {
+          ok: boolean;
+          error?: string;
+          days?: number;
+          trial_ends_at?: string;
+        };
+      };
+      create_promo_code: {
+        Args: {
+          p_grants_days: number;
+          p_max_uses: number;
+          p_note: string | null;
+          p_expires_at: string | null;
+        };
+        Returns: string;
+      };
+      is_platform_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      company_has_access: {
+        Args: { p_company_id: string };
+        Returns: boolean;
       };
     };
     Enums: Record<string, never>;

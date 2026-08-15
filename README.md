@@ -82,6 +82,7 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
    | `0006_reminders.sql` | Erinnerungen für alle Fristen-Module |
    | `0007_settings.sql` | Benutzer-Präferenzen, Firmeneinstellungen, Kontolöschung |
    | `0008_corrections_push_invites.sql` | Korrekturfenster für eigene Einträge, Push-Abos |
+   | `0009_billing.sql` | Abo, Probemonat, Testcodes, Plattform-Admins |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
@@ -109,6 +110,74 @@ NEXT_PUBLIC_SITE_URL=https://fuhrpark.deine-domain.de
 # Öffentlicher VAPID-Schlüssel für Push (siehe Abschnitt Push weiter unten)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=<vapid-public-key>
 ```
+
+## Abo, Probemonat und Testcodes
+
+Abgerechnet wird **je Firma**, unabhängig von der Zahl der Mitarbeiter:
+
+| Tarif | Preis |
+| --- | --- |
+| Monatlich | 19,90 € |
+| Jährlich | 209,90 € |
+
+Jede neu angelegte Firma bekommt automatisch **30 Tage Probemonat**. Läuft der
+Zugang ab, landen alle auf `/abo` — der **CSV-Export bleibt erreichbar**, damit
+niemand von den eigenen Daten ausgesperrt wird.
+
+### Stripe einrichten
+
+1. Zwei wiederkehrende Preise anlegen (19,90 € / Monat, 209,90 € / Jahr)
+2. Umgebungsvariablen setzen:
+
+   ```
+   STRIPE_SECRET_KEY=sk_live_…
+   STRIPE_PRICE_MONTHLY=price_…
+   STRIPE_PRICE_YEARLY=price_…
+   STRIPE_WEBHOOK_SECRET=whsec_…
+   SUPABASE_SERVICE_ROLE_KEY=…   # nur für den Webhook
+   ```
+
+3. Webhook auf `https://<domain>/api/stripe/webhook` mit den Ereignissen
+   `checkout.session.completed` sowie `customer.subscription.created`,
+   `.updated` und `.deleted`
+
+Der Webhook prüft die Signatur, bevor er irgendetwas schreibt, und ist deshalb
+bewusst von der Login-Weiterleitung ausgenommen.
+
+### Testcodes (nur für den Betreiber)
+
+Nach dem Deployment einmalig sich selbst zum Plattform-Admin machen:
+
+```sql
+insert into public.platform_admins (user_id)
+select id from auth.users where email = 'deine@adresse.de';
+```
+
+Danach steht `/plattform` zur Verfügung — dort lassen sich Codes im Format
+`TEST-XXXXXXXX` erzeugen, mit frei wählbarer Dauer und Anzahl der Einlösungen.
+Die Codetabelle ist per RLS **nur für Plattform-Admins lesbar**; Firmen können
+Codes ausschließlich einlösen, nicht auflisten. Fehlermeldungen unterscheiden
+bewusst nicht zwischen „unbekannt" und „aufgebraucht", damit sich gültige Codes
+nicht erraten lassen.
+
+## Anmeldung mit Google und Apple
+
+Neben E-Mail/Passwort stehen beide Anbieter zur Verfügung. In Supabase unter
+**Authentication → Providers** einrichten:
+
+- **Google:** OAuth-Client in der Google Cloud Console anlegen, als
+  Redirect-URI `https://<projekt>.supabase.co/auth/v1/callback` eintragen,
+  Client-ID und -Secret in Supabase hinterlegen.
+- **Apple:** Im Apple Developer Portal eine **Service ID** anlegen, „Sign in
+  with Apple" aktivieren, dieselbe Redirect-URI eintragen und einen
+  **Sign-in-Key (.p8)** erzeugen. Service ID, Team ID, Key ID und Key in
+  Supabase hinterlegen.
+
+> Sign in with Apple ist auf iOS **Pflicht**, sobald ein anderer
+> Drittanbieter-Login angeboten wird (App-Store-Richtlinie 4.8).
+
+Wer sich per Google oder Apple anmeldet, hat zunächst keine Firma und landet
+auf `/onboarding` — dort wird eine Firma gegründet oder per Code beigetreten.
 
 ## Passwort-Reset per Gmail einrichten
 

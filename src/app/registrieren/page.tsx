@@ -9,6 +9,7 @@ import {
   type RegisterState,
 } from "./actions";
 import { Button, Field, Notice } from "@/components/ui";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 const initialState: RegisterState = { error: null };
 
@@ -112,6 +113,10 @@ function RegisterForm() {
               : "Firma beitreten"}
         </Button>
       </form>
+
+      <div className="mt-4">
+        <OAuthButtons joinCode={mode === "employee" ? invitedCode : undefined} />
+      </div>
 
       <p className="mt-4 text-center text-sm text-muted">
         Schon registriert?{" "}

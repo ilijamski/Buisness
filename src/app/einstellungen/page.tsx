@@ -121,6 +121,18 @@ export default async function SettingsPage() {
           )}
         </Card>
 
+        <Card title="Abo">
+          <p className="mb-3 text-sm text-muted">
+            Laufzeit, Tarif und Testcodes verwaltest du im Abo-Bereich.
+          </p>
+          <Link
+            href="/abo"
+            className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
+          >
+            Zum Abo
+          </Link>
+        </Card>
+
         <Card title="Rechtliches & Info">
           <ul className="divide-y divide-border text-sm">
             {LEGAL_LINKS.map((link) => (

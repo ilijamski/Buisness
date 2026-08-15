@@ -1,4 +1,4 @@
-import { requireAdmin, loadCompanyModules } from "@/lib/auth";
+import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { Card, PageTitle } from "@/components/ui";
@@ -7,7 +7,7 @@ import { VehicleForm } from "@/components/VehicleForm";
 import type { AssignmentWithDriver, Vehicle } from "@/lib/types";
 
 export default async function AdminVehiclesPage() {
-  const { profile, company } = await requireAdmin();
+  const { profile, company } = await requireActiveAdmin();
   const config = await loadCompanyModules(profile.company_id!);
   const supabase = await createClient();
 

@@ -6,8 +6,10 @@ import { Button, Field, Notice } from "@/components/ui";
 
 const initialState: OnboardingState = { error: null };
 
-export function OnboardingForm() {
-  const [mode, setMode] = useState<"company" | "employee">("company");
+export function OnboardingForm({ invitedCode = "" }: { invitedCode?: string }) {
+  const [mode, setMode] = useState<"company" | "employee">(
+    invitedCode ? "employee" : "company",
+  );
   const [state, formAction, pending] = useActionState(completeOnboarding, initialState);
 
   return (
@@ -42,7 +44,13 @@ export function OnboardingForm() {
           </Field>
         ) : (
           <Field label="Firmen-Code" required hint="Den Code bekommst du von deinem Admin.">
-            <input name="join_code" required autoCapitalize="characters" className="uppercase" />
+            <input
+              name="join_code"
+              required
+              defaultValue={invitedCode}
+              autoCapitalize="characters"
+              className="uppercase"
+            />
           </Field>
         )}
 
