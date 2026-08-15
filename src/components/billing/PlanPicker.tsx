@@ -4,7 +4,14 @@ import { useActionState, useEffect, useState } from "react";
 import { startCheckout, redeemCode } from "@/app/abo/actions";
 import { Button, Notice } from "@/components/ui";
 import { idleState } from "@/lib/action-state";
-import { PLANS, formatPrice, type Plan } from "@/lib/billing";
+import {
+  PLANS,
+  VAT_RATE,
+  formatPrice,
+  netFromGross,
+  vatFromGross,
+  type Plan,
+} from "@/lib/billing";
 import { isNative } from "@/lib/native";
 
 /**
@@ -54,16 +61,23 @@ export function PlanPicker() {
                   <p className="mt-1 text-xl font-semibold">
                     {formatPrice(option.priceCents)}
                   </p>
-                  <p className="text-xs text-muted">{option.interval}</p>
+                  <p className="text-xs text-muted">
+                    {option.interval} · inkl. {Math.round(VAT_RATE * 100)} % MwSt.
+                  </p>
                   <p className="mt-1 text-xs text-muted">{option.hint}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Netto {formatPrice(netFromGross(option.priceCents))} +{" "}
+                    {formatPrice(vatFromGross(option.priceCents))} MwSt.
+                  </p>
                 </button>
               );
             })}
           </div>
 
           <p className="text-xs text-muted">
-            Preise zzgl. gesetzlicher Umsatzsteuer. Gilt für die gesamte Firma,
-            unabhängig von der Anzahl der Mitarbeiter.
+            Endpreise inklusive gesetzlicher Umsatzsteuer — es kommt nichts mehr
+            dazu. Der Preis gilt für die gesamte Firma, unabhängig von der Anzahl
+            der Mitarbeiter und Fahrzeuge.
           </p>
 
           {checkoutState.error && <Notice kind="error">{checkoutState.error}</Notice>}

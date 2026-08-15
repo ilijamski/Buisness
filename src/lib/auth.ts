@@ -7,6 +7,8 @@ import type { Company, Profile } from "@/lib/types";
 export type Session = {
   profile: Profile;
   company: Company | null;
+  /** Betreiber der Plattform (nicht: Fuhrpark-Admin einer Firma). */
+  isPlatformAdmin: boolean;
 };
 
 /**
@@ -36,13 +38,16 @@ export async function requireSession(): Promise<Session> {
     redirect("/onboarding");
   }
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("*")
-    .eq("id", profile.company_id)
-    .maybeSingle();
+  const [{ data: company }, { data: isPlatformAdmin }] = await Promise.all([
+    supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle(),
+    supabase.rpc("is_platform_admin"),
+  ]);
 
-  return { profile, company: company ?? null };
+  return {
+    profile,
+    company: company ?? null,
+    isPlatformAdmin: isPlatformAdmin === true,
+  };
 }
 
 export async function requireAdmin(): Promise<Session> {
@@ -63,7 +68,9 @@ export async function requireAdmin(): Promise<Session> {
 export async function requireActiveSession(): Promise<Session> {
   const session = await requireSession();
 
-  if (!accessState(session.company).hasAccess) {
+  // Der Betreiber zahlt nicht für sein eigenes Produkt — dieselbe Ausnahme
+  // steckt in company_has_access() in der Datenbank.
+  if (!session.isPlatformAdmin && !accessState(session.company).hasAccess) {
     redirect("/abo?abgelaufen=1");
   }
 

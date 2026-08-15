@@ -2,6 +2,14 @@ import type { Company } from "@/lib/types";
 
 export type Plan = "monthly" | "yearly";
 
+/**
+ * Alle Preise sind **Bruttopreise** — der ausgewiesene Betrag ist der, der
+ * abgebucht wird. In Stripe müssen die zugehörigen Preise deshalb auf
+ * „inklusive Steuer" (tax_behavior: inclusive) stehen, sonst schlägt Stripe
+ * die Umsatzsteuer noch einmal obendrauf.
+ */
+export const VAT_RATE = 0.19;
+
 export const PLANS: Record<
   Plan,
   { label: string; priceCents: number; interval: string; hint: string }
@@ -16,11 +24,20 @@ export const PLANS: Record<
     label: "Jährlich",
     priceCents: 20990,
     interval: "pro Jahr",
-    hint: "Entspricht 17,49 € im Monat.",
+    hint: "Entspricht 17,49 € im Monat — zwei Monate geschenkt.",
   },
 };
 
 export const TRIAL_DAYS = 30;
+
+/** Nettoanteil eines Bruttopreises, für den Ausweis auf der Abo-Seite. */
+export function netFromGross(grossCents: number): number {
+  return Math.round(grossCents / (1 + VAT_RATE));
+}
+
+export function vatFromGross(grossCents: number): number {
+  return grossCents - netFromGross(grossCents);
+}
 
 export function formatPrice(cents: number): string {
   return new Intl.NumberFormat("de-DE", {

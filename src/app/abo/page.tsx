@@ -98,7 +98,7 @@ export default async function BillingPage() {
             <DataList
               items={(Object.keys(PLANS) as (keyof typeof PLANS)[]).map((key) => ({
                 label: PLANS[key].label,
-                value: `${formatPrice(PLANS[key].priceCents)} ${PLANS[key].interval}`,
+                value: `${formatPrice(PLANS[key].priceCents)} ${PLANS[key].interval} (inkl. MwSt.)`,
               }))}
             />
             <p className="mt-3 text-sm text-muted">

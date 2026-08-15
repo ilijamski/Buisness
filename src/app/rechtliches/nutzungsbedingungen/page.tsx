@@ -34,9 +34,10 @@ export default function TermsPage() {
       <Section title="4. Preise, Testphase und Laufzeit">
         <p>
           Die Nutzung kostet <strong>19,90 € pro Monat</strong> oder{" "}
-          <strong>209,90 € pro Jahr</strong>, jeweils zuzüglich gesetzlicher
-          Umsatzsteuer. Der Preis gilt je Firma, unabhängig von der Anzahl der
-          Mitarbeiter und Fahrzeuge.
+          <strong>209,90 € pro Jahr</strong>. Es handelt sich um Endpreise{" "}
+          <strong>inklusive der gesetzlichen Umsatzsteuer</strong> von derzeit
+          19 % — weitere Kosten entstehen nicht. Der Preis gilt je Firma,
+          unabhängig von der Anzahl der Mitarbeiter und Fahrzeuge.
         </p>
         <p>
           Jede neu angelegte Firma erhält einen <strong>kostenlosen Probemonat

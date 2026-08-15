@@ -19,7 +19,7 @@ const LEGAL_LINKS = [
 ];
 
 export default async function SettingsPage() {
-  const { profile, company } = await requireSession();
+  const { profile, company, isPlatformAdmin } = await requireSession();
   const supabase = await createClient();
   const isAdmin = profile.role === "admin";
 
@@ -120,6 +120,20 @@ export default async function SettingsPage() {
             <DeleteAccount deletesCompany={verdict.deletes_company === true} />
           )}
         </Card>
+
+        {isPlatformAdmin && (
+          <Card title="Betreiber">
+            <p className="mb-3 text-sm text-muted">
+              Testcodes erzeugen und ihre Nutzung verfolgen.
+            </p>
+            <Link
+              href="/plattform"
+              className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
+            >
+              Testcodes verwalten
+            </Link>
+          </Card>
+        )}
 
         <Card title="Abo">
           <p className="mb-3 text-sm text-muted">

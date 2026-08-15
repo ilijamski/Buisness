@@ -83,6 +83,7 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
    | `0007_settings.sql` | Benutzer-Präferenzen, Firmeneinstellungen, Kontolöschung |
    | `0008_corrections_push_invites.sql` | Korrekturfenster für eigene Einträge, Push-Abos |
    | `0009_billing.sql` | Abo, Probemonat, Testcodes, Plattform-Admins |
+   | `0010_platform_owner.sql` | Betreiber-Freigabeliste, dauerhafter Zugang für dessen Firma |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
@@ -115,10 +116,15 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=<vapid-public-key>
 
 Abgerechnet wird **je Firma**, unabhängig von der Zahl der Mitarbeiter:
 
-| Tarif | Preis |
-| --- | --- |
-| Monatlich | 19,90 € |
-| Jährlich | 209,90 € |
+| Tarif | Preis (brutto) | davon MwSt. (19 %) |
+| --- | --- | --- |
+| Monatlich | 19,90 € | 3,18 € |
+| Jährlich | 209,90 € | 33,51 € |
+
+Es sind **Endpreise inklusive Umsatzsteuer** — der ausgewiesene Betrag wird
+abgebucht. In Stripe müssen die Preise deshalb auf **„inklusive Steuer"**
+(`tax_behavior: inclusive`) stehen, sonst rechnet Stripe die Steuer noch
+einmal obendrauf.
 
 Jede neu angelegte Firma bekommt automatisch **30 Tage Probemonat**. Läuft der
 Zugang ab, landen alle auf `/abo` — der **CSV-Export bleibt erreichbar**, damit
@@ -126,7 +132,8 @@ niemand von den eigenen Daten ausgesperrt wird.
 
 ### Stripe einrichten
 
-1. Zwei wiederkehrende Preise anlegen (19,90 € / Monat, 209,90 € / Jahr)
+1. Zwei wiederkehrende Preise anlegen (19,90 € / Monat, 209,90 € / Jahr),
+   jeweils mit Steuerverhalten **„inklusive"**
 2. Umgebungsvariablen setzen:
 
    ```
@@ -144,16 +151,27 @@ niemand von den eigenen Daten ausgesperrt wird.
 Der Webhook prüft die Signatur, bevor er irgendetwas schreibt, und ist deshalb
 bewusst von der Login-Weiterleitung ausgenommen.
 
-### Testcodes (nur für den Betreiber)
+### Betreiber-Zugang
 
-Nach dem Deployment einmalig sich selbst zum Plattform-Admin machen:
+Migration `0010_platform_owner.sql` trägt `ilija.mski@gmail.com` in eine
+Freigabeliste ein. Sobald sich diese Adresse registriert — per E-Mail, Google
+oder Apple —, wird das Konto **automatisch** Plattform-Admin; ein bereits
+bestehendes Konto wird beim Ausführen der Migration nachträglich freigeschaltet.
+
+Weitere Betreiber ergänzt du so:
 
 ```sql
-insert into public.platform_admins (user_id)
-select id from auth.users where email = 'deine@adresse.de';
+insert into public.platform_admin_emails (email, note)
+values ('weitere@adresse.de', 'Support');
 ```
 
-Danach steht `/plattform` zur Verfügung — dort lassen sich Codes im Format
+Firmen, in denen ein Plattform-Admin Mitglied ist, haben **dauerhaft Zugang** —
+der Betreiber zahlt nicht für sein eigenes Produkt und wird nach dem Probemonat
+nicht ausgesperrt.
+
+### Testcodes
+
+Als Plattform-Admin steht `/plattform` zur Verfügung — dort lassen sich Codes im Format
 `TEST-XXXXXXXX` erzeugen, mit frei wählbarer Dauer und Anzahl der Einlösungen.
 Die Codetabelle ist per RLS **nur für Plattform-Admins lesbar**; Firmen können
 Codes ausschließlich einlösen, nicht auflisten. Fehlermeldungen unterscheiden

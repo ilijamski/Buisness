@@ -15,11 +15,10 @@ import type { PromoCode } from "@/lib/types";
  * ihre Existenz.
  */
 export default async function PlatformPage() {
-  const { profile, company } = await requireSession();
-  const supabase = await createClient();
-
-  const { data: isPlatformAdmin } = await supabase.rpc("is_platform_admin");
+  const { profile, company, isPlatformAdmin } = await requireSession();
   if (!isPlatformAdmin) notFound();
+
+  const supabase = await createClient();
 
   // RLS gibt die Codeliste ohnehin nur Plattform-Admins frei.
   const { data: codes } = await supabase
