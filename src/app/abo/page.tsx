@@ -16,7 +16,9 @@ export default async function BillingPage() {
     ? "Aktiv"
     : access.inTrial
       ? "Testphase"
-      : "Abgelaufen";
+      : access.neverActivated
+        ? "Nicht freigeschaltet"
+        : "Abgelaufen";
 
   return (
     <>
@@ -33,13 +35,20 @@ export default async function BillingPage() {
           }
         />
 
-        {!access.hasAccess && (
-          <Notice kind="error">
-            {isAdmin
-              ? "Der Zugang ist abgelaufen. Nach Abschluss eines Abos steht sofort wieder alles zur Verfügung — eure Daten bleiben in der Zwischenzeit gespeichert."
-              : "Der Zugang eurer Firma ist abgelaufen. Bitte wende dich an deinen Fuhrpark-Admin."}
-          </Notice>
-        )}
+        {!access.hasAccess &&
+          (access.neverActivated ? (
+            <Notice kind="info">
+              {isAdmin
+                ? "Noch ein Schritt: Schließ ein Abo ab oder lös einen Testcode ein, dann steht euch die App vollständig offen."
+                : "Eure Firma ist noch nicht freigeschaltet. Dein Fuhrpark-Admin erledigt das im Bereich Abo."}
+            </Notice>
+          ) : (
+            <Notice kind="error">
+              {isAdmin
+                ? "Der Zugang ist abgelaufen. Nach Abschluss eines Abos steht sofort wieder alles zur Verfügung — eure Daten bleiben in der Zwischenzeit gespeichert."
+                : "Der Zugang eurer Firma ist abgelaufen. Bitte wende dich an deinen Fuhrpark-Admin."}
+            </Notice>
+          ))}
 
         {access.inTrial && access.trialDaysLeft !== null && (
           <Notice kind="info">
@@ -123,8 +132,8 @@ export default async function BillingPage() {
         </Card>
 
         <p className="text-center text-xs text-muted">
-          Der Probemonat läuft {TRIAL_DAYS} Tage und endet automatisch — es entstehen
-          keine Kosten, solange kein Abo abgeschlossen wird.{" "}
+          Ein Testcode schaltet {TRIAL_DAYS} Tage frei und endet automatisch — es
+          entstehen keine Kosten, solange kein Abo abgeschlossen wird.{" "}
           <Link href="/rechtliches/nutzungsbedingungen" className="underline">
             Nutzungsbedingungen
           </Link>

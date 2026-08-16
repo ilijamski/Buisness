@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Card, PageTitle } from "@/components/ui";
 import { VehicleSearch } from "@/components/VehicleSearch";
 import { VehicleForm } from "@/components/VehicleForm";
+import { VehicleImport } from "@/components/admin/VehicleImport";
 import type { AssignmentWithDriver, Vehicle } from "@/lib/types";
 
 export default async function AdminVehiclesPage() {
@@ -46,6 +47,10 @@ export default async function AdminVehiclesPage() {
 
         <Card title="Fahrzeug hinzufügen">
           <VehicleForm config={config} />
+        </Card>
+
+        <Card title="Mehrere Fahrzeuge auf einmal">
+          <VehicleImport />
         </Card>
       </main>
     </>

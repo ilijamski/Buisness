@@ -35,6 +35,8 @@ export type Company = {
   cancel_at_period_end: boolean;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  /** Erste Freischaltung (Abo oder Testcode). Leer = noch nie freigeschaltet. */
+  activated_at: string | null;
   created_at: string;
 };
 

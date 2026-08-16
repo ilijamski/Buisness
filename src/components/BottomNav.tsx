@@ -50,6 +50,13 @@ const Icons = {
       <path d="M5 20c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5" />
     </svg>
   ),
+  calendar: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+      <path d="M8 13h3v3H8z" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
       <circle cx="12" cy="12" r="3" />
@@ -68,6 +75,7 @@ function itemsFor(role: Role): NavItem[] {
         icon: Icons.truck,
         match: ["/fahrzeuge"],
       },
+      { href: "/admin/fristen", label: "Fristen", icon: Icons.calendar },
       { href: "/admin/mitarbeiter", label: "Team", icon: Icons.team },
       {
         href: "/einstellungen",

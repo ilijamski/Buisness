@@ -28,6 +28,13 @@ export const PLANS: Record<
   },
 };
 
+/**
+ * Länge des Gratiszeitraums, den ein Testcode gewährt.
+ *
+ * Es gibt keinen automatischen Probemonat mehr: Wer sich registriert, hat
+ * erst nach Abschluss eines Abos oder nach Einlösen eines Codes Zugang.
+ * Gratiszeit entsteht ausschließlich über einen Code.
+ */
 export const TRIAL_DAYS = 30;
 
 /** Nettoanteil eines Bruttopreises, für den Ausweis auf der Abo-Seite. */
@@ -55,6 +62,12 @@ export type AccessState = {
   trialDaysLeft: number | null;
   /** Zahlendes Abo aktiv? */
   paid: boolean;
+  /**
+   * Firma war noch nie freigeschaltet — frisch registriert, nichts bezahlt,
+   * kein Code eingelöst. Unterscheidet den Neukunden vom abgelaufenen Abo;
+   * beide sehen dieselbe Seite, brauchen aber eine andere Ansprache.
+   */
+  neverActivated: boolean;
   status: Company["subscription_status"];
 };
 
@@ -64,7 +77,14 @@ export type AccessState = {
  */
 export function accessState(company: Company | null): AccessState {
   if (!company) {
-    return { hasAccess: false, inTrial: false, trialDaysLeft: null, paid: false, status: "canceled" };
+    return {
+      hasAccess: false,
+      inTrial: false,
+      trialDaysLeft: null,
+      paid: false,
+      neverActivated: true,
+      status: "canceled",
+    };
   }
 
   const now = Date.now();
@@ -83,6 +103,7 @@ export function accessState(company: Company | null): AccessState {
     inTrial,
     trialDaysLeft: inTrial ? Math.ceil((trialEnd! - now) / (1000 * 60 * 60 * 24)) : null,
     paid,
+    neverActivated: !company.activated_at,
     status: company.subscription_status,
   };
 }

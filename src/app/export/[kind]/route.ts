@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveModules } from "@/lib/modules";
+import { vehicleDeadlines } from "@/lib/deadlines";
+import { sampleCsv } from "@/lib/csv-import";
+import type { Vehicle } from "@/lib/types";
 
 /**
  * CSV-Export für Einträge und Fahrtenbuch.
@@ -116,5 +120,54 @@ export async function GET(
     return csvResponse(`fahrtenbuch-${today}.csv`, toCsv(headers, rows));
   }
 
+  if (kind === "vorlage") {
+    return csvResponse("fuhrpark-vorlage.csv", "﻿" + sampleCsv());
+  }
+
+  if (kind === "fristen") {
+    const { data, error } = await supabase.from("vehicles").select("*");
+    if (error) return new NextResponse(error.message, { status: 400 });
+
+    const config = await loadCompanyModulesForExport(supabase);
+
+    const headers = ["Fahrzeug", "Kennzeichen", "Art", "Termin", "Tage", "Status"];
+    const rows: Row[] = ((data as Vehicle[] | null) ?? [])
+      .flatMap((vehicle) =>
+        vehicleDeadlines(vehicle, config).map((deadline) => ({ vehicle, deadline })),
+      )
+      .sort((a, b) => a.deadline.daysLeft - b.deadline.daysLeft)
+      .map(({ vehicle, deadline }) => ({
+        Fahrzeug: vehicle.name,
+        Kennzeichen: vehicle.plate,
+        Art: deadline.label,
+        Termin: deadline.date,
+        Tage: deadline.daysLeft,
+        Status:
+          deadline.status === "overdue"
+            ? "überfällig"
+            : deadline.status === "due-soon"
+              ? "fällig"
+              : "offen",
+      }));
+
+    return csvResponse(`fristen-${today}.csv`, toCsv(headers, rows));
+  }
+
   return new NextResponse("Unbekannter Export", { status: 404 });
+}
+
+/**
+ * Modul-Grundeinstellung für den Export.
+ *
+ * `loadCompanyModules` aus `lib/auth` würde eine eigene Verbindung aufbauen;
+ * hier ist die des Aufrufers schon offen, und RLS begrenzt die Zeilen ohnehin
+ * auf die eigene Firma.
+ */
+async function loadCompanyModulesForExport(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const { data } = await supabase
+    .from("company_module_settings")
+    .select("module_key, enabled, required");
+  return resolveModules(data ?? []);
 }

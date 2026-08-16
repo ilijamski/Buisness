@@ -12,6 +12,7 @@ import { WorkshopForm } from "@/components/forms/WorkshopForm";
 import { DocumentForm } from "@/components/forms/DocumentForm";
 import { EntryRowActions } from "@/components/forms/EntryRowActions";
 import { vehicleDeadlines, deadlineText } from "@/lib/deadlines";
+import { isScanConfigured } from "@/lib/receipt-scan";
 import { isEnabled, isRequired, MODULES } from "@/lib/modules";
 import { getSignedUrls, RECEIPTS_BUCKET, DOCUMENTS_BUCKET } from "@/lib/receipts";
 import { DEFAULT_USER_SETTINGS, type UserSettings } from "@/lib/settings";
@@ -217,6 +218,7 @@ export default async function VehiclePage({
             showMileage={isEnabled(config, "mileage")}
             mileageRequired={isRequired(config, "mileage")}
             receiptRequired={isRequired(config, "receipts")}
+                scanEnabled={isScanConfigured()}
           />
         </Card>
 
