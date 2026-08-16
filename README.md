@@ -37,13 +37,66 @@ Alle Module sind in [`src/lib/modules.ts`](./src/lib/modules.ts) definiert —
 Felder, Gruppen und überwachte Fristen kommen aus dieser einen Datei, sowohl
 für die Formulare als auch für die Fristenübersicht.
 
+## Abfahrtskontrolle, Mängel und Aufträge
+
+**Abfahrtskontrolle:** Der Fahrer geht die Checkliste Punkt für Punkt durch —
+einen Punkt pro Bildschirm, nicht als Liste zum Durchklicken. Punkte lassen
+sich als *in Ordnung*, *Mangel* oder *entfällt* beantworten, zu jedem Mangel
+gehören Notiz und Foto. Die Standardliste orientiert sich an DGUV Vorschrift
+70 (§ 36 UVV „Fahrzeuge"); sicherheitsrelevante Punkte sind markiert, und ein
+Mangel dort setzt den ganzen Check auf **nicht verkehrssicher**.
+
+Ein eingereichter Check ist **unveränderlich** — er ist ein Nachweis, und ein
+nachträglich änderbarer Nachweis wäre keiner. Der Admin kann ihn nur löschen.
+
+**Mängel** entstehen automatisch aus jeder Beanstandung, lassen sich aber auch
+einzeln melden. Sie sind ein eigener Vorgang mit Status (offen, in Arbeit,
+erledigt, verworfen), Termin, Kosten und Erledigungsvermerk — sonst würden sie
+in einer Liste alter Checks liegen bleiben. Melden darf jeder Fahrer,
+**bearbeiten nur der Admin**.
+
+**Aufträge** weist der Admin einem Fahrer und optional einem Fahrzeug zu. Der
+Fahrer schaltet sie weiter (geplant → unterwegs → erledigt) und kann eine
+Notiz hinterlassen; alles andere — Titel, Adresse, Termin, Zuweisung — bleibt
+für ihn gesperrt (Trigger `guard_job_driver_fields`, siehe Migration `0017`).
+
+## Verbrauch und CO₂
+
+Die getankte Menge wird als Zahl gespeichert (nicht nur im Notiztext) und beim
+Scannen des Belegs automatisch erkannt. Daraus rechnet
+[`src/lib/emissions.ts`](./src/lib/emissions.ts) Verbrauch in l/100 km und den
+CO₂-Ausstoß nach den Emissionsfaktoren des Umweltbundesamts (Tank-to-Wheel,
+also die Abgrenzung für GHG Protocol Scope 1).
+
+Der Verbrauch braucht mindestens zwei Tankvorgänge mit notiertem
+Kilometerstand. Die erste Füllung zählt dabei bewusst **nicht** mit: was vor
+dem ersten notierten Stand im Tank war, wurde nicht auf dieser Strecke
+verbraucht.
+
+Was ohne Hardware im Fahrzeug **nicht** geht — und deshalb auch nicht
+vorgetäuscht wird: Live-Ortung, Fahrverhalten-Bewertung, Verbrauch aus dem
+Bordcomputer, Fernauslesen des Tachografen, Reifendruck, Temperaturüberwachung.
+Das setzt eine Telematik-Box, einen OBD-Stecker oder Sensorik voraus.
+
 ## Bedienung
 
-Unten liegt eine feste Leiste für den Bereichswechsel (auf großen Bildschirmen
+Die Startseite ist ein **Einstieg, keine Aktenlage**: oben steht nur, was
+sofort erledigt werden muss (überfällige Fristen, kritische Mängel), darunter
+führen Kacheln in die Themenbereiche. Alles Weitere liegt hinter dem
+jeweiligen Bereich, statt auf einer Seite untereinander.
+
+Themenbereiche des Admins: Fahrzeuge · Fristen · Mängel · Fahrzeugchecks ·
+Aufträge · Team · Kosten · Verbrauch & CO₂ · Einstellungen.
+
+Der Fahrer sieht: Abfahrtskontrolle · Tanken erfassen · Mangel melden ·
+Meine Aufträge · Mein Fahrzeug · Einstellungen.
+
+Unten liegt zusätzlich eine feste Leiste für den schnellen Wechsel zwischen
+den Bereichen, die man mitten in der Arbeit braucht (auf großen Bildschirmen
 wandert die Navigation in den Kopfbereich):
 
-- **Admin:** Übersicht · Fahrzeuge · Team · Mehr
-- **Mitarbeiter:** Fahrzeuge · Profil · Mehr
+- **Admin:** Start · Fahrzeuge · Mängel · Aufträge · Mehr
+- **Mitarbeiter:** Start · Aufträge · Profil · Mehr
 
 Unter **Einstellungen** finden sich Darstellung (hell/dunkel/wie das Gerät),
 Standard-Fahrtart, E-Mail-Erinnerungen, Listendichte, Profil, Passwort ändern,

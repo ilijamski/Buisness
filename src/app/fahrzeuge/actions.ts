@@ -85,6 +85,8 @@ export async function createEntry(
   const note = String(formData.get("note") ?? "").trim();
   const date = String(formData.get("date") ?? "");
   const mileageRaw = String(formData.get("mileage") ?? "").trim();
+  const litersRaw = String(formData.get("liters") ?? "").trim();
+  const fuelType = String(formData.get("fuel_type") ?? "").trim();
 
   if (!vehicleId) return { error: "Fahrzeug fehlt.", success: false };
   if (!ENTRY_TYPES.includes(type as EntryType)) {
@@ -94,6 +96,18 @@ export async function createEntry(
     return { error: "Bitte einen gültigen Betrag angeben.", success: false };
   }
   if (!date) return { error: "Bitte ein Datum angeben.", success: false };
+
+  // Liter und Zählerstand werden mitgeschrieben, nicht nur in die Notiz
+  // gepackt: nur als Zahl lassen sich daraus Verbrauch und CO2 rechnen.
+  const liters = litersRaw ? Number(litersRaw.replace(",", ".")) : null;
+  if (liters !== null && (Number.isNaN(liters) || liters <= 0)) {
+    return { error: "Bitte eine gültige Literzahl angeben.", success: false };
+  }
+
+  const mileage = mileageRaw ? Number.parseInt(mileageRaw, 10) : null;
+  if (mileage !== null && (Number.isNaN(mileage) || mileage < 0)) {
+    return { error: "Bitte einen gültigen Kilometerstand angeben.", success: false };
+  }
 
   const upload = await uploadFile(RECEIPTS_BUCKET, user.id, formData.get("receipt"));
   if (upload.error) return { error: upload.error, success: false };
@@ -106,6 +120,9 @@ export async function createEntry(
     date,
     author_id: user.id,
     receipt_path: upload.path,
+    liters,
+    fuel_type: fuelType || null,
+    mileage,
   });
 
   if (error) {
@@ -115,15 +132,12 @@ export async function createEntry(
     return { error: `Eintrag konnte nicht gespeichert werden: ${error.message}`, success: false };
   }
 
-  // Kilometerstand mitpflegen, wenn er im Formular erfasst wurde.
-  if (mileageRaw) {
-    const mileage = Number.parseInt(mileageRaw, 10);
-    if (!Number.isNaN(mileage)) {
-      await supabase
-        .from("vehicles")
-        .update({ current_mileage: mileage, mileage_updated_at: new Date().toISOString() })
-        .eq("id", vehicleId);
-    }
+  // Kilometerstand am Fahrzeug mitpflegen, wenn er erfasst wurde.
+  if (mileage !== null) {
+    await supabase
+      .from("vehicles")
+      .update({ current_mileage: mileage, mileage_updated_at: new Date().toISOString() })
+      .eq("id", vehicleId);
   }
 
   revalidatePath(`/fahrzeuge/${vehicleId}`);

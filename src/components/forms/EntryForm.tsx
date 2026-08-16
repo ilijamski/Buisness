@@ -39,6 +39,8 @@ function applyScan(form: HTMLFormElement | null, scan: ScanResult) {
   set("date", scan.date);
   set("type", scan.type);
   set("mileage", scan.mileage);
+  set("liters", scan.liters);
+  set("fuel_type", scan.fuelType);
   set("note", scan.note);
 }
 
@@ -190,6 +192,24 @@ export function EntryForm({
             <input name="mileage" type="number" min="0" required={mileageRequired} />
           </Field>
         )}
+
+        {/* Liter und Sorte tragen Verbrauch und CO2-Bilanz. Beim Scannen des
+            Belegs werden beide automatisch gefüllt. */}
+        <Field label="Getankte Liter" hint="Nur beim Tanken; für Verbrauch und CO₂.">
+          <input name="liters" type="number" step="0.01" min="0" placeholder="0,00" />
+        </Field>
+
+        <Field label="Kraftstoff">
+          <select name="fuel_type" defaultValue="">
+            <option value="">Keine Angabe</option>
+            <option value="diesel">Diesel</option>
+            <option value="benzin">Benzin</option>
+            <option value="super">Super</option>
+            <option value="super e10">Super E10</option>
+            <option value="lpg">Autogas (LPG)</option>
+            <option value="cng">Erdgas (CNG)</option>
+          </select>
+        </Field>
       </div>
 
       <Field label="Notiz">

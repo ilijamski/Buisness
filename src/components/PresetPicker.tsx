@@ -20,7 +20,7 @@ export function PresetPicker({ configuredCount }: { configuredCount: number }) {
     <form action={formAction} className="space-y-3">
       {configuredCount === 0 && (
         <Notice kind="info">
-          Ihr arbeitet noch mit der Grundaufstellung „Handwerk &amp; Bau". Wähl das
+          Ihr arbeitet noch mit der Grundaufstellung „Handwerk &amp; Bau&ldquo;. Wähl das
           Profil, das zu eurem Fuhrpark passt — das entscheidet, welche Felder
           beim Anlegen eines Fahrzeugs überhaupt erscheinen.
         </Notice>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireActiveSession, loadVehicleModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -11,6 +12,7 @@ import { LogbookForm } from "@/components/forms/LogbookForm";
 import { WorkshopForm } from "@/components/forms/WorkshopForm";
 import { DocumentForm } from "@/components/forms/DocumentForm";
 import { EntryRowActions } from "@/components/forms/EntryRowActions";
+import { DefectForm } from "@/components/forms/DefectForm";
 import { vehicleDeadlines, deadlineText } from "@/lib/deadlines";
 import { isScanConfigured } from "@/lib/receipt-scan";
 import { isEnabled, isRequired, MODULES } from "@/lib/modules";
@@ -211,15 +213,32 @@ export default async function VehiclePage({
         </div>
 
         {/* Erfassen: Einträge stehen Fahrer und Admin offen. */}
-        <Card title="Neuer Eintrag">
+        <Card title="Neuer Eintrag" id="erfassen">
           <EntryForm
             vehicleId={id}
             showReceipt={isEnabled(config, "receipts")}
             showMileage={isEnabled(config, "mileage")}
             mileageRequired={isRequired(config, "mileage")}
             receiptRequired={isRequired(config, "receipts")}
-                scanEnabled={isScanConfigured()}
+            scanEnabled={isScanConfigured()}
           />
+        </Card>
+
+        <Card title="Abfahrtskontrolle">
+          <p className="mb-3 text-sm text-muted">
+            Die Checkliste Punkt für Punkt durchgehen. Beanstandungen werden
+            automatisch als Mangel gemeldet.
+          </p>
+          <Link
+            href={`/checks/${id}`}
+            className="inline-flex items-center rounded border border-primary bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:bg-primary-hover"
+          >
+            Check starten
+          </Link>
+        </Card>
+
+        <Card title="Mangel melden" id="mangel">
+          <DefectForm vehicleId={id} />
         </Card>
 
         <Card title="Einträge">

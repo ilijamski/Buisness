@@ -5,14 +5,17 @@ export function Card({
   action,
   children,
   className = "",
+  id,
 }: {
   title?: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Sprungziel für Verweise wie /fahrzeuge/123#erfassen. */
+  id?: string;
 }) {
   return (
-    <section className={`rounded border border-border bg-bg ${className}`}>
+    <section id={id} className={`scroll-mt-4 rounded border border-border bg-bg ${className}`}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
           {title && <h2 className="text-sm font-semibold">{title}</h2>}

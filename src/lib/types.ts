@@ -154,6 +154,11 @@ export type Entry = {
   date: string;
   author_id: string;
   receipt_path: string | null;
+  /** Getankte Menge in Litern; Grundlage für Verbrauch und CO2. */
+  liters: number | null;
+  fuel_type: string | null;
+  /** Zählerstand beim Tanken — für die Strecke zwischen zwei Füllungen. */
+  mileage: number | null;
   created_at: string;
 };
 
@@ -221,6 +226,105 @@ export type VehicleDocument = {
   valid_until: string | null;
   uploaded_by: string | null;
   created_at: string;
+};
+
+// --- Fahrzeugcheck, Mängel, Aufträge ---------------------------------------
+
+/** Ein Punkt auf der Checkliste. `critical` = Mangel legt das Fahrzeug still. */
+export type CheckItem = {
+  key: string;
+  label: string;
+  critical: boolean;
+};
+
+export type CheckTemplate = {
+  id: string;
+  company_id: string;
+  name: string;
+  items: CheckItem[];
+  is_default: boolean;
+  active: boolean;
+  created_at: string;
+};
+
+export type CheckResultStatus = "ok" | "mangel" | "entfaellt";
+export type CheckOutcome = "ok" | "maengel" | "stillgelegt";
+
+export type VehicleCheck = {
+  id: string;
+  vehicle_id: string;
+  driver_id: string;
+  template_id: string | null;
+  performed_at: string;
+  mileage: number | null;
+  result: CheckOutcome;
+  note: string | null;
+  created_at: string;
+};
+
+export type CheckResult = {
+  id: string;
+  check_id: string;
+  item_key: string;
+  label: string;
+  status: CheckResultStatus;
+  note: string | null;
+  photo_path: string | null;
+  created_at: string;
+};
+
+export type CheckWithDriver = VehicleCheck & {
+  profiles: Pick<Profile, "id" | "full_name" | "email"> | null;
+  vehicles: Pick<Vehicle, "id" | "name" | "plate"> | null;
+};
+
+export type DefectSeverity = "gering" | "mittel" | "kritisch";
+export type DefectStatus = "offen" | "in_arbeit" | "erledigt" | "verworfen";
+
+export type Defect = {
+  id: string;
+  vehicle_id: string;
+  reported_by: string | null;
+  check_id: string | null;
+  title: string;
+  description: string | null;
+  severity: DefectSeverity;
+  status: DefectStatus;
+  photo_path: string | null;
+  due_date: string | null;
+  assigned_to: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  cost: number | null;
+  created_at: string;
+};
+
+export type DefectWithContext = Defect & {
+  vehicles: Pick<Vehicle, "id" | "name" | "plate"> | null;
+  profiles: Pick<Profile, "id" | "full_name" | "email"> | null;
+};
+
+export type JobStatus = "geplant" | "unterwegs" | "erledigt" | "abgebrochen";
+
+export type Job = {
+  id: string;
+  company_id: string;
+  vehicle_id: string | null;
+  assigned_to: string | null;
+  title: string;
+  description: string | null;
+  address: string | null;
+  scheduled_for: string | null;
+  status: JobStatus;
+  completed_at: string | null;
+  driver_note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type JobWithContext = Job & {
+  vehicles: Pick<Vehicle, "id" | "name" | "plate"> | null;
+  profiles: Pick<Profile, "id" | "full_name" | "email"> | null;
 };
 
 export type CompanyModuleSetting = {
@@ -296,6 +400,28 @@ export type Database = {
       >;
       company_module_settings: Table<CompanyModuleSetting, CompanyModuleSetting>;
       vehicle_module_settings: Table<VehicleModuleSetting, VehicleModuleSetting>;
+      check_templates: Table<
+        CheckTemplate,
+        Omit<CheckTemplate, "id" | "created_at"> & { id?: string }
+      >;
+      vehicle_checks: Table<
+        VehicleCheck,
+        Omit<VehicleCheck, "id" | "created_at" | "performed_at"> & {
+          id?: string;
+          performed_at?: string;
+        }
+      >;
+      check_results: Table<
+        CheckResult,
+        Omit<CheckResult, "id" | "created_at"> & { id?: string }
+      >;
+      // Beim Anlegen sind nur Fahrzeug und Titel Pflicht — Termin, Kosten
+      // und Bearbeitungsstand entstehen erst später.
+      defects: Table<
+        Defect,
+        Partial<Defect> & { vehicle_id: string; title: string }
+      >;
+      jobs: Table<Job, Partial<Job> & { company_id: string; title: string }>;
       user_settings: Table<{
         user_id: string;
         theme: "light" | "dark" | "system";
