@@ -21,6 +21,12 @@
 // kommt dann alles aus einer Hand.
 //
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY liefert die Edge-Runtime.
+//
+// Aufrufschutz: die Function läuft ohne JWT-Prüfung, damit pg_cron sie ohne
+// Service-Role-Schlüssel erreicht. Stattdessen verlangt sie die Kopfzeile
+// x-reminder-secret mit dem Wert aus dem Vault (Migration 0016). Ohne
+// gültige Kopfzeile endet der Aufruf mit 401, bevor irgendeine Kundenzeile
+// gelesen wird.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
@@ -75,7 +81,7 @@ function daysBetween(from: Date, isoDate: string): number {
   return Math.round((target - from.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -89,6 +95,22 @@ Deno.serve(async () => {
 
     if (!supabaseUrl || !serviceRoleKey) {
       throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY fehlen.");
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Der Aufruf ist nur mit dem Geheimnis aus dem Vault erlaubt (siehe
+    // Migration 0016). Die Function steht ohne JWT-Prüfung im Netz, damit
+    // pg_cron sie ohne Service-Role-Schlüssel erreichen kann — diese
+    // Kopfzeile ist deshalb die einzige Tür, und sie wird als Erstes
+    // geprüft, vor jedem Datenbankzugriff auf Kundendaten.
+    const { data: secretOk, error: secretError } = await supabase.rpc(
+      "reminder_secret_valid",
+      { p_secret: req.headers.get("x-reminder-secret") },
+    );
+    if (secretError) throw secretError;
+    if (secretOk !== true) {
+      return Response.json({ error: "Nicht berechtigt." }, { status: 401 });
     }
 
     const useSmtp = Boolean(smtpHost && smtpUser && smtpPass);
@@ -136,8 +158,6 @@ Deno.serve(async () => {
         throw new Error(`Resend antwortete mit ${res.status}: ${await res.text()}`);
       }
     }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));

@@ -282,44 +282,52 @@ npm run dev
 Unter [http://localhost:3000](http://localhost:3000) auf **Firma anlegen**
 gehen — der erste Nutzer wird automatisch Admin.
 
-## 4. Fristen-Erinnerungen per E-Mail (Edge Function + Resend)
+## 4. Fristen-Erinnerungen per E-Mail (Edge Function)
 
 [`supabase/functions/fristen-reminder`](./supabase/functions/fristen-reminder)
 prüft täglich alle **aktiven** Fristen-Module und meldet jede Fälligkeit
-innerhalb der nächsten 30 Tage an die Admins der jeweiligen Firma — inklusive
-ablaufender Führerscheine. Deaktivierte Module werden übersprungen, und
-`reminder_log` sorgt dafür, dass jede Fälligkeit nur einmal gemeldet wird.
+innerhalb der eingestellten Vorlaufzeit an die Admins der jeweiligen Firma —
+inklusive ablaufender Führerscheine. Deaktivierte Module werden übersprungen,
+und `reminder_log` sorgt dafür, dass jede Fälligkeit nur einmal gemeldet wird.
+
+Zeitplan und Absicherung bringen die Migrationen `0013` und `0016` mit: der
+Cron-Auftrag `fristen-erinnerung` läuft täglich um 07:00 UTC und ruft die
+Function mit einem Geheimnis auf, das die Datenbank beim Einspielen selbst
+erzeugt und im [Vault](https://supabase.com/docs/guides/database/vault)
+ablegt. Ein Service-Role-Schlüssel wird dafür **nicht** gebraucht — die
+Function prüft die Kopfzeile `x-reminder-secret` und antwortet sonst mit 401.
+Sie wird deshalb mit `--no-verify-jwt` deployt:
 
 ```bash
-supabase functions deploy fristen-reminder
+supabase functions deploy fristen-reminder --no-verify-jwt
+```
+
+Einzurichten bleibt nur der **Versandweg**. Entweder SMTP über das eigene
+Postfach — dann kommen Erinnerungen aus demselben Postfach wie die
+Bestätigungs- und Passwort-Mails:
+
+```bash
+supabase secrets set SMTP_HOST=smtp.gmail.com SMTP_PORT=587
+supabase secrets set SMTP_USER=dein.konto@gmail.com
+supabase secrets set SMTP_PASS=<App-Passwort, nicht das Kontopasswort>
+supabase secrets set REMINDER_FROM_EMAIL=dein.konto@gmail.com
+```
+
+Oder alternativ Resend, falls kein eigenes Postfach genutzt werden soll:
+
+```bash
 supabase secrets set RESEND_API_KEY=re_xxx
 supabase secrets set REMINDER_FROM_EMAIL="Fuhrpark-Manager <noreply@deine-domain.de>"
 ```
 
-Täglichen Aufruf einrichten — entweder über **Dashboard → Database → Cron Jobs**
-(Template „Invoke Edge Function", Ziel `fristen-reminder`, z. B. `0 7 * * *`)
-oder per SQL mit `pg_cron` + `pg_net` (Extensions vorher aktivieren):
+Solange keins von beidem gesetzt ist, läuft der Auftrag folgenlos durch und
+meldet `Kein Versandweg eingerichtet`. Zum Prüfen von Hand:
 
 ```sql
-select cron.schedule(
-  'fristen-reminder-daily',
-  '0 7 * * *', -- täglich 07:00 UTC
-  $$
-  select net.http_post(
-    url := 'https://<dein-projekt-ref>.supabase.co/functions/v1/fristen-reminder',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <service-role-key>'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+select public.trigger_deadline_reminders();
+-- kurz warten, dann die Antwort der Function ansehen:
+select status_code, content from net._http_response order by id desc limit 1;
 ```
-
-Den `service-role-key` besser über
-[Supabase Vault](https://supabase.com/docs/guides/database/vault) einbinden
-statt im Klartext zu hinterlegen.
 
 Die **Vorlaufzeit** stellt jeder Admin unter *Einstellungen → Firma* ein
 (Standard 30 Tage); wer keine Erinnerungen möchte, schaltet sie unter
