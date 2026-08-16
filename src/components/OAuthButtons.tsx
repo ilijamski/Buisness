@@ -13,7 +13,21 @@ import { Notice } from "@/components/ui";
  *
  * Sign in with Apple ist auf iOS Pflicht, sobald ein anderer
  * Drittanbieter-Login angeboten wird (App-Store-Richtlinie 4.8).
+ *
+ * Angezeigt wird nur, was in Supabase tatsächlich eingerichtet ist —
+ * gesteuert über NEXT_PUBLIC_OAUTH_PROVIDERS (z. B. "google" oder
+ * "google,apple"). Ein Knopf für einen nicht eingerichteten Anbieter
+ * scheitert mit „Unsupported provider: provider is not enabled", und das
+ * erst nach dem Tippen. Wer sich anmelden will, hält das für einen Fehler
+ * der App — nicht für eine fehlende Einstellung.
  */
+const CONFIGURED = new Set(
+  (process.env.NEXT_PUBLIC_OAUTH_PROVIDERS ?? "")
+    .split(",")
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 export function OAuthButtons({ joinCode }: { joinCode?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"google" | "apple" | null>(null);
@@ -40,6 +54,9 @@ export function OAuthButtons({ joinCode }: { joinCode?: string }) {
     }
   }
 
+  // Ist nichts eingerichtet, entfällt der ganze Block samt Trennlinie.
+  if (CONFIGURED.size === 0) return null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 text-xs text-muted">
@@ -48,6 +65,7 @@ export function OAuthButtons({ joinCode }: { joinCode?: string }) {
         <span className="h-px flex-1 bg-border" />
       </div>
 
+      {CONFIGURED.has("google") && (
       <button
         type="button"
         onClick={() => signIn("google")}
@@ -74,7 +92,9 @@ export function OAuthButtons({ joinCode }: { joinCode?: string }) {
         </svg>
         {busy === "google" ? "Weiterleiten…" : "Weiter mit Google"}
       </button>
+      )}
 
+      {CONFIGURED.has("apple") && (
       <button
         type="button"
         onClick={() => signIn("apple")}
@@ -86,6 +106,7 @@ export function OAuthButtons({ joinCode }: { joinCode?: string }) {
         </svg>
         {busy === "apple" ? "Weiterleiten…" : "Weiter mit Apple"}
       </button>
+      )}
 
       {error && <Notice kind="error">{error}</Notice>}
     </div>
