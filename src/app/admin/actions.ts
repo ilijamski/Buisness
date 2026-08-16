@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
-import { MODULES, MODULE_KEYS } from "@/lib/modules";
+import { MODULES, MODULE_KEYS, resolveModules } from "@/lib/modules";
 import { PRESET_BY_KEY, presetModules, type PresetKey } from "@/lib/presets";
+import { parseVehicleCsv, type ImportRow } from "@/lib/csv-import";
 import type { Vehicle } from "@/lib/types";
 
 import type { ActionState } from "@/lib/action-state";
+import { idleImportState, type ImportState } from "@/lib/import-state";
 
 /** Wandelt einen Formularwert je Feldtyp in einen DB-tauglichen Wert. */
 function parseFieldValue(
@@ -119,6 +121,99 @@ export async function updateVehicle(
 }
 
 /** Firmenweite Modul-Grundeinstellungen speichern. */
+/**
+ * Legt mehrere Fahrzeuge aus einer CSV-Datei an.
+ *
+ * Ein Betrieb mit zwanzig Fahrzeugen hat sie längst in einer Tabelle; ohne
+ * Importweg bleibt er beim ersten Fahrzeug stehen. Geparst wird bewusst hier
+ * auf dem Server und nicht im Browser — was eingefügt wird, darf nicht davon
+ * abhängen, was der Client schickt.
+ *
+ * Bereits vorhandene Kennzeichen werden übersprungen statt überschrieben:
+ * ein zweiter Import derselben Datei soll nichts doppeln und nichts
+ * zerstören.
+ */
+export async function importVehicles(
+  _prevState: ImportState,
+  formData: FormData,
+): Promise<ImportState> {
+  const { profile } = await requireAdmin();
+
+  const file = formData.get("datei");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ...idleImportState, error: "Bitte eine CSV-Datei auswählen." };
+  }
+  if (file.size > 2_000_000) {
+    return { ...idleImportState, error: "Die Datei ist größer als 2 MB." };
+  }
+
+  const supabase = await createClient();
+  const { data: settings } = await supabase
+    .from("company_module_settings")
+    .select("module_key, enabled, required");
+
+  const parsed = parseVehicleCsv(await file.text(), resolveModules(settings ?? []));
+
+  if (parsed.rows.length === 0) {
+    return {
+      ...idleImportState,
+      error: "Keine übernehmbare Zeile gefunden.",
+      problems: parsed.problems.slice(0, 20),
+    };
+  }
+
+  // Vorhandene Kennzeichen ermitteln; RLS begrenzt auf die eigene Firma.
+  const { data: existing } = await supabase.from("vehicles").select("plate");
+  const known = new Set(
+    (existing ?? []).map((row) => String(row.plate).trim().toLowerCase()),
+  );
+
+  const fresh: ImportRow[] = [];
+  let skipped = 0;
+  for (const row of parsed.rows) {
+    const plate = row.values.plate.trim().toLowerCase();
+    if (known.has(plate)) {
+      skipped += 1;
+      continue;
+    }
+    known.add(plate);
+    fresh.push(row);
+  }
+
+  let imported = 0;
+  const problems = [...parsed.problems];
+
+  if (fresh.length > 0) {
+    const { error, count } = await supabase
+      .from("vehicles")
+      .insert(
+        fresh.map((row) => ({ company_id: profile.company_id!, ...row.values })),
+        { count: "exact" },
+      );
+
+    if (error) {
+      return {
+        ...idleImportState,
+        error: `Import fehlgeschlagen: ${error.message}`,
+        problems: problems.slice(0, 20),
+      };
+    }
+    imported = count ?? fresh.length;
+  }
+
+  revalidatePath("/admin/fahrzeuge");
+  revalidatePath("/admin");
+
+  return {
+    error: null,
+    done: true,
+    imported,
+    skipped,
+    ignoredColumns: parsed.ignoredColumns,
+    problems: problems.slice(0, 20),
+  };
+}
+
 /**
  * Setzt die Modulauswahl auf ein Branchen-Profil.
  *

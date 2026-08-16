@@ -100,6 +100,18 @@ export default function PrivacyPage() {
             adresse und Inhalt der Erinnerung).
           </li>
           <li>
+            <strong>Anthropic</strong> — Auslesen fotografierter Belege. Das Bild
+            wird zur Texterkennung übertragen und dort nicht zum Training von
+            Modellen verwendet. Übertragen wird ausschließlich das Beleg-Foto, das
+            der Nutzer dafür auswählt; die Funktion läuft nur auf ausdrücklichen
+            Knopfdruck und lässt sich weglassen, indem der Betreiber keinen
+            Zugangsschlüssel hinterlegt.
+          </li>
+          <li>
+            <strong>Stripe</strong> — Abwicklung der Abo-Zahlungen (Zahlungsdaten,
+            Rechnungsanschrift).
+          </li>
+          <li>
             <strong>
               <Placeholder>Hosting-Anbieter</Placeholder>
             </strong>{" "}
@@ -109,6 +121,12 @@ export default function PrivacyPage() {
         <p>
           Mit diesen Dienstleistern ist jeweils ein Vertrag zur Auftragsverarbeitung
           nach Art. 28 DSGVO abzuschließen.
+        </p>
+        <p>
+          Beleg-Fotos können personenbezogene Angaben enthalten — etwa den Namen
+          des Zahlenden oder eine Kartennummer. Wer das vermeiden will, schaltet
+          die Belegerkennung nicht frei und erfasst die Werte von Hand; die
+          Funktion ist an keiner Stelle Voraussetzung für die Nutzung der App.
         </p>
       </Section>
 

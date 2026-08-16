@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Card, PageTitle, Notice, Badge } from "@/components/ui";
 import { VehicleList } from "@/components/VehicleList";
 import { EntryForm } from "@/components/forms/EntryForm";
+import { isScanConfigured } from "@/lib/receipt-scan";
 import { isEnabled, isRequired } from "@/lib/modules";
 import { urgentDeadlines, deadlineText } from "@/lib/deadlines";
 import type { Vehicle } from "@/lib/types";
@@ -86,6 +87,7 @@ export default async function MitarbeiterPage() {
                 showMileage={isEnabled(config, "mileage")}
                 mileageRequired={isRequired(config, "mileage")}
                 receiptRequired={isRequired(config, "receipts")}
+                scanEnabled={isScanConfigured()}
               />
             </Card>
 

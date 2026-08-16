@@ -12,11 +12,19 @@
 // liegt. Deaktivierte Module werden übersprungen: die Firmeneinstellung wird
 // bei Bedarf durch die Fahrzeugeinstellung überschrieben, analog zur App.
 //
-// Secrets: RESEND_API_KEY, REMINDER_FROM_EMAIL
+// Versand über SMTP oder Resend, je nachdem was hinterlegt ist:
+//   SMTP   — SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS (+ REMINDER_FROM_EMAIL)
+//   Resend — RESEND_API_KEY (+ REMINDER_FROM_EMAIL)
+// SMTP hat Vorrang. Damit gehen die Erinnerungen über dasselbe Postfach wie
+// die Bestätigungs- und Passwort-Mails aus den Supabase-Auth-Einstellungen,
+// statt über einen zweiten Dienst mit eigenem Absender — für den Empfänger
+// kommt dann alles aus einer Hand.
+//
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY liefert die Edge-Runtime.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import nodemailer from "npm:nodemailer@6.9.16";
 
 /** Genutzt, wenn eine Firma keine eigene Vorlaufzeit gesetzt hat. */
 const DEFAULT_LEAD_DAYS = 30;
@@ -73,15 +81,60 @@ Deno.serve(async () => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const fromEmail = Deno.env.get("REMINDER_FROM_EMAIL");
+    const smtpHost = Deno.env.get("SMTP_HOST");
+    const smtpUser = Deno.env.get("SMTP_USER");
+    const smtpPass = Deno.env.get("SMTP_PASS");
+    const smtpPort = Number(Deno.env.get("SMTP_PORT") ?? "587");
+    const fromName = Deno.env.get("REMINDER_FROM_NAME") ?? "Fuhrpark-Manager";
 
     if (!supabaseUrl || !serviceRoleKey) {
       throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY fehlen.");
     }
-    if (!resendApiKey || !fromEmail) {
+
+    const useSmtp = Boolean(smtpHost && smtpUser && smtpPass);
+    if (!fromEmail || (!useSmtp && !resendApiKey)) {
       return Response.json(
-        { sent: 0, skipped: "RESEND_API_KEY oder REMINDER_FROM_EMAIL nicht gesetzt" },
+        {
+          sent: 0,
+          skipped:
+            "Kein Versandweg eingerichtet: REMINDER_FROM_EMAIL fehlt, oder weder SMTP_* noch RESEND_API_KEY gesetzt.",
+        },
         { status: 200 },
       );
+    }
+
+    // Eine Verbindung für den ganzen Lauf. Gmail beendet die Sitzung sonst
+    // nach einigen Nachrichten wegen zu vieler Anmeldungen.
+    const transport = useSmtp
+      ? nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          // 465 spricht von Anfang an TLS, 587 schaltet per STARTTLS um.
+          secure: smtpPort === 465,
+          auth: { user: smtpUser, pass: smtpPass },
+          pool: true,
+        })
+      : null;
+
+    /** Verschickt eine Nachricht über den eingerichteten Weg. */
+    async function deliver(to: string[], subject: string, html: string): Promise<void> {
+      if (transport) {
+        await transport.sendMail({ from: `"${fromName}" <${fromEmail}>`, to, subject, html });
+        return;
+      }
+
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from: fromEmail, to, subject, html }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Resend antwortete mit ${res.status}: ${await res.text()}`);
+      }
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -299,22 +352,13 @@ Deno.serve(async () => {
       const recipients = recipientsByCompany.get(reminder.companyId);
       if (!recipients || recipients.length === 0) continue;
 
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: recipients,
-          subject: reminder.title,
-          html: reminder.body,
-        }),
-      });
-
-      if (!res.ok) {
-        console.error(`Resend-Fehler (${reminder.moduleKey}): ${res.status} ${await res.text()}`);
+      try {
+        await deliver(recipients, reminder.title, reminder.body);
+      } catch (error) {
+        // Eine gescheiterte Nachricht darf den Lauf nicht abbrechen — die
+        // übrigen Fristen sollen trotzdem hinausgehen. Unprotokolliert
+        // versucht es der nächste Lauf erneut.
+        console.error(`Versand fehlgeschlagen (${reminder.moduleKey}):`, error);
         continue;
       }
 
@@ -342,7 +386,12 @@ Deno.serve(async () => {
       sent++;
     }
 
-    return Response.json({ sent, due: pending.length }, { status: 200 });
+    transport?.close();
+
+    return Response.json(
+      { sent, due: pending.length, via: useSmtp ? "smtp" : "resend" },
+      { status: 200 },
+    );
   } catch (error) {
     console.error(error);
     return Response.json({ error: String(error) }, { status: 500 });

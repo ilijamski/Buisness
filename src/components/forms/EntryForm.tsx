@@ -10,6 +10,37 @@ import { idleState } from "@/lib/action-state";
 import { compressFormFile } from "@/lib/image";
 import { queueEntry, type PendingEntry } from "@/lib/offline-queue";
 import { isNative, takePhoto, hapticSuccess } from "@/lib/native";
+import { scanReceiptAction } from "@/app/fahrzeuge/scan-actions";
+import { idleScanState, type ScanState } from "@/lib/scan-state";
+import type { ScanResult } from "@/lib/receipt-scan";
+
+/**
+ * Trägt die erkannten Werte in die Formularfelder ein.
+ *
+ * Leere Felder werden übersprungen, damit eine unvollständige Erkennung
+ * nichts überschreibt, was der Fahrer schon selbst eingetippt hat.
+ */
+function applyScan(form: HTMLFormElement | null, scan: ScanResult) {
+  if (!form) return;
+
+  const set = (name: string, value: string) => {
+    if (!value) return;
+    const field = form.elements.namedItem(name);
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+      field.value = value;
+    } else if (field instanceof HTMLTextAreaElement) {
+      // Notizen ergänzen statt ersetzen — der Fahrer hat dort womöglich
+      // schon etwas stehen, das der Beleg nicht weiß.
+      field.value = field.value ? `${field.value} · ${value}` : value;
+    }
+  };
+
+  set("cost", scan.cost);
+  set("date", scan.date);
+  set("type", scan.type);
+  set("mileage", scan.mileage);
+  set("note", scan.note);
+}
 
 export function EntryForm({
   vehicleId,
@@ -17,12 +48,15 @@ export function EntryForm({
   showMileage,
   mileageRequired,
   receiptRequired,
+  scanEnabled = false,
 }: {
   vehicleId: string;
   showReceipt: boolean;
   showMileage: boolean;
   mileageRequired: boolean;
   receiptRequired: boolean;
+  /** Belegerkennung anbieten (nur wenn serverseitig eingerichtet). */
+  scanEnabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(createEntry, idleState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -30,7 +64,50 @@ export function EntryForm({
   const [queued, setQueued] = useState(false);
   const [nativePhoto, setNativePhoto] = useState<File | null>(null);
   const [hasNativeCamera, setHasNativeCamera] = useState(false);
+  const [scan, setScan] = useState<ScanState>(idleScanState);
+  const [scanning, setScanning] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
+
+  /**
+   * Liest den ausgewählten Beleg aus und füllt die Felder vor.
+   *
+   * Die Werte werden gesetzt, nicht abgeschickt — der Fahrer sieht sie im
+   * Formular und korrigiert, was das Modell falsch gelesen hat. Ein Beleg
+   * ist ein Buchungsnachweis; ungeprüfte Zahlen wären hier schlimmer als
+   * gar keine.
+   */
+  async function runScan() {
+    const file = nativePhoto ?? receiptInputRef.current?.files?.[0] ?? null;
+    if (!file) {
+      setScan({ error: "Wähl zuerst ein Foto des Belegs aus.", result: null });
+      return;
+    }
+
+    setScanning(true);
+    setScan(idleScanState);
+
+    try {
+      const payload = new FormData();
+      payload.set("beleg", file);
+      // Dasselbe Verkleinern wie beim Hochladen: spart Zeit und Datenvolumen.
+      await compressFormFile(payload, "beleg");
+
+      const next = await scanReceiptAction(idleScanState, payload);
+      setScan(next);
+
+      if (next.result) {
+        applyScan(formRef.current, next.result);
+        await hapticSuccess();
+      }
+    } catch {
+      setScan({
+        error: "Der Beleg konnte gerade nicht ausgelesen werden. Trag die Werte bitte von Hand ein.",
+        result: null,
+      });
+    } finally {
+      setScanning(false);
+    }
+  }
 
   useEffect(() => {
     if (state.success) {
@@ -137,22 +214,60 @@ export function EntryForm({
             capture="environment"
             required={receiptRequired && !nativePhoto}
           />
-          {hasNativeCamera && (
-            <button
-              type="button"
-              onClick={async () => {
-                const photo = await takePhoto();
-                if (photo) {
-                  setNativePhoto(photo);
-                  await hapticSuccess();
-                }
-              }}
-              className="mt-2 rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
-            >
-              📷 Mit Kamera aufnehmen
-            </button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {hasNativeCamera && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const photo = await takePhoto();
+                  if (photo) {
+                    setNativePhoto(photo);
+                    await hapticSuccess();
+                  }
+                }}
+                className="rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
+              >
+                📷 Mit Kamera aufnehmen
+              </button>
+            )}
+
+            {scanEnabled && (
+              <button
+                type="button"
+                onClick={runScan}
+                disabled={scanning}
+                className="rounded border border-primary bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-50"
+              >
+                {scanning ? "Wird gelesen…" : "Beleg auslesen"}
+              </button>
+            )}
+          </div>
+
+          {scanEnabled && (
+            <p className="mt-1.5 text-xs text-muted">
+              Foto aufnehmen, auslesen lassen, Werte prüfen — Betrag, Datum und
+              Menge werden automatisch eingetragen.
+            </p>
           )}
         </Field>
+      )}
+
+      {scan.error && <Notice kind="error">{scan.error}</Notice>}
+
+      {scan.result && !scan.error && (
+        <Notice kind={scan.result.confidence === "hoch" ? "success" : "info"}>
+          {scan.result.problem ? (
+            scan.result.problem
+          ) : scan.result.confidence === "hoch" ? (
+            <>Beleg gelesen. Wirf trotzdem einen Blick auf den Betrag, bevor du speicherst.</>
+          ) : (
+            <>
+              Beleg gelesen, aber die Aufnahme war schwer lesbar
+              {scan.result.confidence === "niedrig" ? " (geringe Sicherheit)" : ""}. Prüf die
+              Werte bitte genau.
+            </>
+          )}
+        </Notice>
       )}
 
       {state.error && <Notice kind="error">{state.error}</Notice>}
