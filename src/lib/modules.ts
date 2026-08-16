@@ -1,3 +1,4 @@
+import { enabledByDefault } from "@/lib/presets";
 import type { Vehicle } from "@/lib/types";
 
 /**
@@ -280,7 +281,12 @@ export type ModuleConfig = Map<string, EffectiveModule>;
 
 /**
  * Löst Firmen-Grundeinstellung und Fahrzeug-Override zusammen.
- * Fehlende Zeile = Standard (aktiv, nicht verpflichtend).
+ *
+ * Fehlt eine Zeile, greift die Grundaufstellung aus `presets` — nicht
+ * „alles an". Eine frisch angelegte Firma startet dadurch mit einem
+ * überschaubaren Satz Module statt mit allen einundzwanzig. Sobald der Admin
+ * einmal speichert, zählt ausschließlich seine Auswahl.
+ *
  * Fahrzeugwert `null` = erbt die Firmeneinstellung.
  */
 export function resolveModules(
@@ -295,7 +301,7 @@ export function resolveModules(
     const base = company.get(mod.key);
     const override = vehicle.get(mod.key);
     config.set(mod.key, {
-      enabled: override?.enabled ?? base?.enabled ?? true,
+      enabled: override?.enabled ?? base?.enabled ?? enabledByDefault(mod.key),
       required: override?.required ?? base?.required ?? false,
     });
   }

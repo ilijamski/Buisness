@@ -2,11 +2,21 @@ import Link from "next/link";
 import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { Card, PageTitle, Badge, EmptyState, DataList } from "@/components/ui";
+import { Card, PageTitle, Badge, EmptyState } from "@/components/ui";
 import { VehicleList } from "@/components/VehicleList";
-import { vehicleDeadlines, deadlineText, daysUntil, statusFor } from "@/lib/deadlines";
+import { GettingStarted, type Step } from "@/components/admin/GettingStarted";
+import { CostOverview } from "@/components/admin/CostOverview";
+import {
+  vehicleDeadlines,
+  deadlineText,
+  daysUntil,
+  statusFor,
+  bucketDeadlines,
+  HORIZON_DAYS,
+} from "@/lib/deadlines";
 import { isEnabled } from "@/lib/modules";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { summarizeCosts, costsByVehicle, costsByType } from "@/lib/costs";
+import { formatDate } from "@/lib/format";
 import type { AssignmentWithDriver, Entry, Profile, Vehicle } from "@/lib/types";
 
 export default async function AdminPage() {
@@ -14,16 +24,26 @@ export default async function AdminPage() {
   const config = await loadCompanyModules(profile.company_id!);
   const supabase = await createClient();
 
-  const [{ data: vehicles }, { data: entries }, { data: assignments }, { data: staff }] =
-    await Promise.all([
-      supabase.from("vehicles").select("*").order("vehicle_number"),
-      supabase.from("entries").select("*"),
-      supabase
-        .from("vehicle_assignments")
-        .select("*, profiles(id, full_name, email, employee_number)")
-        .is("ended_on", null),
-      supabase.from("profiles").select("*"),
-    ]);
+  const [
+    { data: vehicles },
+    { data: entries },
+    { data: assignments },
+    { data: staff },
+    { count: settingsCount },
+  ] = await Promise.all([
+    supabase.from("vehicles").select("*").order("vehicle_number"),
+    supabase.from("entries").select("*"),
+    supabase
+      .from("vehicle_assignments")
+      .select("*, profiles(id, full_name, email, employee_number)")
+      .is("ended_on", null),
+    supabase.from("profiles").select("*"),
+    // Nur die Anzahl: verrät, ob der Admin die Module schon einmal bewusst
+    // eingestellt hat, ohne die Zeilen selbst zu laden.
+    supabase
+      .from("company_module_settings")
+      .select("module_key", { count: "exact", head: true }),
+  ]);
 
   const vehicleList = (vehicles as Vehicle[] | null) ?? [];
   const entryList = (entries as Entry[] | null) ?? [];
@@ -37,21 +57,12 @@ export default async function AdminPage() {
     ]),
   );
 
-  // Kosten je Fahrzeug
-  const costs = new Map<string, number>();
-  for (const entry of entryList) {
-    costs.set(entry.vehicle_id, (costs.get(entry.vehicle_id) ?? 0) + Number(entry.cost));
-  }
-  const totalCost = [...costs.values()].reduce((sum, value) => sum + value, 0);
-
-  // Alle offenen Fristen der Flotte, dringendste zuerst
-  const openDeadlines = vehicleList
-    .flatMap((vehicle) =>
-      vehicleDeadlines(vehicle, config)
-        .filter((d) => d.status !== "ok")
-        .map((d) => ({ vehicle, deadline: d })),
-    )
-    .sort((a, b) => a.deadline.daysLeft - b.deadline.daysLeft);
+  // Alle überwachten Fristen der Flotte, nach Dringlichkeit gruppiert.
+  const allDeadlines = vehicleList.flatMap((vehicle) =>
+    vehicleDeadlines(vehicle, config).map((deadline) => ({ vehicle, deadline })),
+  );
+  const buckets = bucketDeadlines(allDeadlines);
+  const urgentCount = allDeadlines.filter((d) => d.deadline.status !== "ok").length;
 
   // Ablaufende Führerscheine (eigenes Modul)
   const expiringLicenses = isEnabled(config, "license")
@@ -62,6 +73,37 @@ export default async function AdminPage() {
         .sort((a, b) => a.daysLeft - b.daysLeft)
     : [];
 
+  const summary = summarizeCosts(entryList);
+  const perVehicle = costsByVehicle(vehicleList, entryList);
+  const perType = costsByType(entryList);
+
+  const steps: Step[] = [
+    {
+      label: "Branchen-Profil wählen",
+      description: "Legt fest, welche Felder und Bereiche überhaupt erscheinen.",
+      href: "/admin/module",
+      done: (settingsCount ?? 0) > 0,
+    },
+    {
+      label: "Erstes Fahrzeug anlegen",
+      description: "Bezeichnung und Kennzeichen genügen für den Anfang.",
+      href: "/admin/fahrzeuge",
+      done: vehicleList.length > 0,
+    },
+    {
+      label: "Eine Frist eintragen",
+      description: "Zum Beispiel den nächsten TÜV — dann warnt dich die App rechtzeitig.",
+      href: "/admin/fahrzeuge",
+      done: allDeadlines.length > 0,
+    },
+    {
+      label: "Mitarbeiter einladen",
+      description: "Per Firmen-Code oder Einladungslink, danach Fahrzeuge zuordnen.",
+      href: "/admin/mitarbeiter",
+      done: staffList.length > 1,
+    },
+  ];
+
   return (
     <>
       <Header profile={profile} company={company} />
@@ -69,51 +111,72 @@ export default async function AdminPage() {
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
         <PageTitle
           title="Übersicht"
-          subtitle={`${vehicleList.length} Fahrzeuge · ${staffList.length} Mitarbeiter`}
+          subtitle={`${vehicleList.length} ${vehicleList.length === 1 ? "Fahrzeug" : "Fahrzeuge"} · ${staffList.length} ${staffList.length === 1 ? "Mitarbeiter" : "Mitarbeiter"}`}
         />
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <p className="text-xs text-muted">Fahrzeuge</p>
-            <p className="text-2xl font-semibold">{vehicleList.length}</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-muted">Offene Fristen</p>
-            <p className="text-2xl font-semibold">{openDeadlines.length}</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-muted">Kosten gesamt</p>
-            <p className="text-2xl font-semibold">{formatCurrency(totalCost)}</p>
-          </Card>
-        </div>
+        <GettingStarted steps={steps} />
 
-        <Card title="Anstehende Fristen">
-          {openDeadlines.length === 0 ? (
-            <EmptyState>Keine Fristen in den nächsten 30 Tagen.</EmptyState>
+        {/* Fristen zuerst: der eigentliche Grund, warum jemand die App öffnet. */}
+        <Card
+          title="Fristen"
+          action={
+            urgentCount > 0 ? (
+              <Badge tone={buckets[0]?.key === "overdue" ? "danger" : "warn"}>
+                {urgentCount} offen
+              </Badge>
+            ) : undefined
+          }
+        >
+          {buckets.length === 0 ? (
+            <EmptyState>
+              {allDeadlines.length === 0
+                ? "Noch keine Fristen hinterlegt. Trag beim Fahrzeug ein HU- oder Versicherungsdatum ein."
+                : `Nichts fällig in den nächsten ${HORIZON_DAYS} Tagen.`}
+            </EmptyState>
           ) : (
-            <ul className="divide-y divide-border">
-              {openDeadlines.slice(0, 15).map(({ vehicle, deadline }) => (
-                <li
-                  key={`${vehicle.id}-${deadline.moduleKey}`}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
-                >
-                  <div>
-                    <Link
-                      href={`/fahrzeuge/${vehicle.id}`}
-                      className="text-sm font-medium underline-offset-2 hover:underline"
-                    >
-                      {vehicle.name}
-                    </Link>
-                    <p className="text-xs text-muted">
-                      {vehicle.plate} · {deadline.label} · {formatDate(deadline.date)}
-                    </p>
+            <div className="space-y-4">
+              {buckets.map((bucket) => (
+                <div key={bucket.key}>
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-semibold">
+                      {bucket.label}{" "}
+                      <span className="font-normal text-muted tabular-nums">
+                        ({bucket.items.length})
+                      </span>
+                    </h3>
+                    <p className="text-xs text-muted">{bucket.hint}</p>
                   </div>
-                  <Badge tone={deadline.status === "overdue" ? "danger" : "warn"}>
-                    {deadlineText(deadline)}
-                  </Badge>
-                </li>
+
+                  <ul className="mt-1 divide-y divide-border border-t border-border">
+                    {bucket.items.slice(0, 10).map(({ vehicle, deadline }) => (
+                      <li
+                        key={`${vehicle.id}-${deadline.moduleKey}`}
+                        className="flex flex-wrap items-center justify-between gap-2 py-2"
+                      >
+                        <div className="min-w-0">
+                          <Link
+                            href={`/fahrzeuge/${vehicle.id}`}
+                            className="text-sm font-medium underline-offset-2 hover:underline"
+                          >
+                            {vehicle.name}
+                          </Link>
+                          <p className="text-xs text-muted">
+                            {vehicle.plate} · {deadline.label} · {formatDate(deadline.date)}
+                          </p>
+                        </div>
+                        <Badge tone={bucket.tone}>{deadlineText(deadline)}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {bucket.items.length > 10 && (
+                    <p className="pt-2 text-xs text-muted">
+                      und {bucket.items.length - 10} weitere
+                    </p>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </Card>
 
@@ -141,21 +204,7 @@ export default async function AdminPage() {
           </Card>
         )}
 
-        <Card
-          title="Kosten pro Fahrzeug"
-          action={
-            <Link href="/admin/fahrzeuge" className="text-sm text-accent underline">
-              Alle Fahrzeuge
-            </Link>
-          }
-        >
-          <DataList
-            items={vehicleList.map((vehicle) => ({
-              label: `${vehicle.name} (${vehicle.plate})`,
-              value: formatCurrency(costs.get(vehicle.id) ?? 0),
-            }))}
-          />
-        </Card>
+        <CostOverview summary={summary} perVehicle={perVehicle} perType={perType} />
 
         <Card title="Flotte">
           <VehicleList vehicles={vehicleList} config={config} driverNames={driverNames} />

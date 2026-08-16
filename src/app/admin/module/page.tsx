@@ -1,11 +1,20 @@
 import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
 import { PageTitle, Card } from "@/components/ui";
 import { ModuleSettingsForm } from "@/components/ModuleSettingsForm";
+import { PresetPicker } from "@/components/PresetPicker";
 
 export default async function ModulePage() {
   const { profile, company } = await requireActiveAdmin();
   const config = await loadCompanyModules(profile.company_id!);
+  const supabase = await createClient();
+
+  // Zeigt, ob die Module schon einmal bewusst eingestellt wurden — solange
+  // nicht, läuft die Firma auf der Grundaufstellung.
+  const { count } = await supabase
+    .from("company_module_settings")
+    .select("module_key", { count: "exact", head: true });
 
   return (
     <>
@@ -16,6 +25,10 @@ export default async function ModulePage() {
           title="Module"
           subtitle="Grundeinstellung für alle Fahrzeuge. Einzelne Fahrzeuge können davon abweichen."
         />
+
+        <Card title="Branchen-Profil">
+          <PresetPicker configuredCount={count ?? 0} />
+        </Card>
 
         <Card title="Firmen-Code">
           <p className="text-sm text-muted">
