@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Card, PageTitle, EmptyState, Badge, Notice } from "@/components/ui";
 import { OUTCOME_LABELS, DEFAULT_CHECK_ITEMS } from "@/lib/checks";
 import { formatDateTime } from "@/lib/format";
+import { isMissingSchema, MISSING_SCHEMA_HINT } from "@/lib/schema";
 import type { CheckTemplate, CheckWithDriver, Vehicle } from "@/lib/types";
 
 /**
@@ -18,7 +19,7 @@ export default async function AdminChecksPage() {
   const { profile, company } = await requireActiveAdmin();
   const supabase = await createClient();
 
-  const [{ data: checks }, { data: vehicles }, { data: templates }] = await Promise.all([
+  const [{ data: checks, error }, { data: vehicles }, { data: templates }] = await Promise.all([
     supabase
       .from("vehicle_checks")
       .select("*, profiles(id, full_name, email), vehicles(id, name, plate)")
@@ -55,6 +56,8 @@ export default async function AdminChecksPage() {
           subtitle="Abfahrtskontrollen der Fahrer, neueste zuerst."
         />
 
+        {isMissingSchema(error) && <Notice kind="info">{MISSING_SCHEMA_HINT}</Notice>}
+
         {grounded.length > 0 && (
           <Notice kind="error">
             {grounded.length}{" "}
@@ -63,7 +66,7 @@ export default async function AdminChecksPage() {
           </Notice>
         )}
 
-        {templateList.length === 0 && (
+        {templateList.length === 0 && !isMissingSchema(error) && (
           <Notice kind="info">
             Es ist noch keine eigene Checkliste hinterlegt — die Fahrer bekommen
             deshalb die Standardliste mit {DEFAULT_CHECK_ITEMS.length} Punkten nach

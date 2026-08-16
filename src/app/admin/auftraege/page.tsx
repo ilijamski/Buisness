@@ -1,9 +1,10 @@
 import { requireActiveAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { Card, PageTitle, EmptyState, Badge } from "@/components/ui";
+import { Card, PageTitle, EmptyState, Badge, Notice } from "@/components/ui";
 import { JobForm } from "@/components/admin/JobForm";
 import { formatDateTime } from "@/lib/format";
+import { isMissingSchema, MISSING_SCHEMA_HINT } from "@/lib/schema";
 import type { JobStatus, JobWithContext, Profile, Vehicle } from "@/lib/types";
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -18,7 +19,7 @@ export default async function AdminJobsPage() {
   const { profile, company } = await requireActiveAdmin();
   const supabase = await createClient();
 
-  const [{ data: jobs }, { data: vehicles }, { data: staff }] = await Promise.all([
+  const [{ data: jobs, error }, { data: vehicles }, { data: staff }] = await Promise.all([
     supabase
       .from("jobs")
       .select("*, vehicles(id, name, plate), profiles!jobs_assigned_to_fkey(id, full_name, email)")
@@ -48,6 +49,8 @@ export default async function AdminJobsPage() {
           title="Aufträge"
           subtitle="Was welcher Fahrer mit welchem Fahrzeug zu erledigen hat."
         />
+
+        {isMissingSchema(error) && <Notice kind="info">{MISSING_SCHEMA_HINT}</Notice>}
 
         <Card title="Neuer Auftrag">
           <JobForm vehicles={vehicleList} drivers={driverList} />

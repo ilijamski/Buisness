@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { Card, PageTitle, Badge, EmptyState } from "@/components/ui";
+import { Card, PageTitle, Badge, EmptyState, Notice } from "@/components/ui";
 import { GettingStarted, type Step } from "@/components/admin/GettingStarted";
 import { TopicTiles, TileIcons, type Tile } from "@/components/TopicTiles";
 import {
@@ -15,6 +15,7 @@ import {
 import { isEnabled } from "@/lib/modules";
 import { summarizeCosts } from "@/lib/costs";
 import { isOpen } from "@/lib/checks";
+import { isMissingSchema, MISSING_SCHEMA_HINT } from "@/lib/schema";
 import { formatDate, formatCurrency } from "@/lib/format";
 import type { Defect, Entry, Job, Profile, Vehicle } from "@/lib/types";
 
@@ -36,7 +37,7 @@ export default async function AdminPage() {
     { data: vehicles },
     { data: entries },
     { data: staff },
-    { data: defects },
+    { data: defects, error: defectsError },
     { data: jobs },
     { count: settingsCount },
     { count: checkCount },
@@ -72,6 +73,10 @@ export default async function AdminPage() {
         .filter((item) => statusFor(item.daysLeft) !== "ok")
         .sort((a, b) => a.daysLeft - b.daysLeft)
     : [];
+
+  // Fehlt die Tabelle noch, ist „nichts offen" keine Aussage über die
+  // Flotte, sondern über die Datenbank. Die Kacheln sagen dann das.
+  const schemaPending = isMissingSchema(defectsError);
 
   const openDefects = defectList.filter(isOpen);
   const criticalDefects = openDefects.filter((d) => d.severity === "kritisch");
@@ -165,8 +170,9 @@ export default async function AdminPage() {
     {
       href: "/admin/maengel",
       label: "Mängel",
-      status:
-        openDefects.length === 0
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : openDefects.length === 0
           ? "Nichts offen"
           : `${openDefects.length} offen${criticalDefects.length > 0 ? `, ${criticalDefects.length} kritisch` : ""}`,
       icon: TileIcons.warning,
@@ -177,8 +183,9 @@ export default async function AdminPage() {
     {
       href: "/admin/checks",
       label: "Fahrzeugchecks",
-      status:
-        (checkCount ?? 0) === 0
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : (checkCount ?? 0) === 0
           ? "Noch keiner durchgeführt"
           : `${checkCount} durchgeführt`,
       icon: TileIcons.check,
@@ -186,7 +193,11 @@ export default async function AdminPage() {
     {
       href: "/admin/auftraege",
       label: "Aufträge",
-      status: openJobs.length === 0 ? "Nichts geplant" : `${openJobs.length} offen`,
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : openJobs.length === 0
+          ? "Nichts geplant"
+          : `${openJobs.length} offen`,
       icon: TileIcons.clipboard,
       count: openJobs.length,
     },
@@ -230,6 +241,8 @@ export default async function AdminPage() {
         />
 
         <GettingStarted steps={steps} />
+
+        {schemaPending && <Notice kind="info">{MISSING_SCHEMA_HINT}</Notice>}
 
         {attention.length > 0 && (
           <Card

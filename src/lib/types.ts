@@ -356,7 +356,14 @@ export type Database = {
       vehicles: Table<Vehicle, Partial<Vehicle> & { name: string; plate: string }>;
       entries: {
         Row: Entry;
-        Insert: Omit<Entry, "id" | "created_at"> & { id?: string };
+        // liters/fuel_type/mileage sind optional: sie kommen erst mit
+        // Migration 0017, und das Erfassen muss auch davor funktionieren.
+        Insert: Omit<Entry, "id" | "created_at" | "liters" | "fuel_type" | "mileage"> & {
+          id?: string;
+          liters?: number | null;
+          fuel_type?: string | null;
+          mileage?: number | null;
+        };
         Update: Partial<Omit<Entry, "id" | "created_at">>;
         Relationships: [
           {

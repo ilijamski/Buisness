@@ -1,10 +1,11 @@
 import { requireActiveAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { Card, PageTitle, EmptyState, Badge } from "@/components/ui";
+import { Card, PageTitle, EmptyState, Badge, Notice } from "@/components/ui";
 import { DefectRow } from "@/components/admin/DefectRow";
 import { getSignedUrls, DEFECTS_BUCKET } from "@/lib/receipts";
 import { byUrgency, isOpen } from "@/lib/checks";
+import { isMissingSchema, MISSING_SCHEMA_HINT } from "@/lib/schema";
 import type { DefectWithContext } from "@/lib/types";
 
 /**
@@ -18,7 +19,7 @@ export default async function AdminDefectsPage() {
   const { profile, company } = await requireActiveAdmin();
   const supabase = await createClient();
 
-  const { data: defects } = await supabase
+  const { data: defects, error } = await supabase
     .from("defects")
     .select("*, vehicles(id, name, plate), profiles!defects_reported_by_fkey(id, full_name, email)")
     .order("created_at", { ascending: false });
@@ -42,6 +43,8 @@ export default async function AdminDefectsPage() {
           title="Mängel"
           subtitle="Aus Fahrzeugchecks und Meldungen der Fahrer."
         />
+
+        {isMissingSchema(error) && <Notice kind="info">{MISSING_SCHEMA_HINT}</Notice>}
 
         <Card
           title="Offen"
