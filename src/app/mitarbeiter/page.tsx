@@ -6,6 +6,9 @@ import { Header } from "@/components/Header";
 import { Card, PageTitle, Notice, Badge, EmptyState } from "@/components/ui";
 import { VehicleList } from "@/components/VehicleList";
 import { TopicTiles, TileIcons, type Tile } from "@/components/TopicTiles";
+import { EntryForm } from "@/components/forms/EntryForm";
+import { isScanConfigured } from "@/lib/receipt-scan";
+import { isEnabled, isRequired } from "@/lib/modules";
 import { urgentDeadlines, deadlineText } from "@/lib/deadlines";
 import { isOpen } from "@/lib/checks";
 import { formatDate } from "@/lib/format";
@@ -14,10 +17,13 @@ import type { Defect, Job, Vehicle, VehicleCheck } from "@/lib/types";
 /**
  * Startseite des Fahrers.
  *
- * Vorher stand hier das Erfassungsformular direkt auf der Seite. Das war
- * richtig gedacht — Tanken eintragen muss schnell gehen — hat aber alles
- * andere verdrängt, was ein Fahrer braucht. Jetzt führen Kacheln in die
- * jeweilige Aufgabe, und die dringendste steht oben.
+ * Kacheln führen in die jeweilige Aufgabe, damit nicht alles auf einer
+ * Seite liegt. Eine Ausnahme bleibt bewusst stehen: das Erfassungsformular
+ * für den Fahrer mit genau einem Fahrzeug. Tanken eintragen passiert an der
+ * Zapfsäule, im Stehen, oft im Regen — was dort auch nur einen Tipp weiter
+ * weg liegt, wird nicht gemacht, und der Beleg landet im Handschuhfach. Die
+ * Kachel „Tanken erfassen" springt deshalb an dieses Formular, statt auf
+ * eine andere Seite zu führen.
  */
 export default async function MitarbeiterPage() {
   const { profile, company } = await requireActiveSession();
@@ -69,7 +75,8 @@ export default async function MitarbeiterPage() {
             tone: checkedToday ? ("neutral" as const) : ("warn" as const),
           },
           {
-            href: `/fahrzeuge/${target}#erfassen`,
+            // Sprungziel auf dieser Seite, kein Seitenwechsel.
+            href: "#erfassen",
             label: "Tanken erfassen",
             status: "Beleg fotografieren, Rest kommt automatisch",
             icon: TileIcons.fuel,
@@ -186,19 +193,36 @@ export default async function MitarbeiterPage() {
 
         {vehicleList.length > 0 && <TopicTiles tiles={tiles} />}
 
+        {soleVehicle && (
+          <Card title="Schnell erfassen" id="erfassen">
+            <EntryForm
+              vehicleId={soleVehicle.id}
+              showReceipt={isEnabled(config, "receipts")}
+              showMileage={isEnabled(config, "mileage")}
+              mileageRequired={isRequired(config, "mileage")}
+              receiptRequired={isRequired(config, "receipts")}
+              scanEnabled={isScanConfigured()}
+            />
+          </Card>
+        )}
+
         {vehicleList.length > 1 && (
           <Card title="Zugewiesene Fahrzeuge">
             <VehicleList vehicles={vehicleList} config={config} />
           </Card>
         )}
 
-        {vehicleList.length > 0 && openDefects.length === 0 && dueSoon.length === 0 && (
-          <Card>
-            <EmptyState>
-              Nichts offen. Fahrzeug ist auf dem aktuellen Stand.
-            </EmptyState>
-          </Card>
-        )}
+        {/* Der Hinweis „nichts offen" hat nur einen Sinn, solange sonst
+            nichts auf der Seite steht — unter einem Formular wäre er nur
+            eine weitere Zeile zum Wegscrollen. */}
+        {vehicleList.length > 0 &&
+          !soleVehicle &&
+          openDefects.length === 0 &&
+          dueSoon.length === 0 && (
+            <Card>
+              <EmptyState>Nichts offen. Alles auf dem aktuellen Stand.</EmptyState>
+            </Card>
+          )}
       </main>
     </>
   );

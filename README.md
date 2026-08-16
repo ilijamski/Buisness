@@ -91,6 +91,13 @@ Aufträge · Team · Kosten · Verbrauch & CO₂ · Einstellungen.
 Der Fahrer sieht: Abfahrtskontrolle · Tanken erfassen · Mangel melden ·
 Meine Aufträge · Mein Fahrzeug · Einstellungen.
 
+Eine Ausnahme von der Kachel-Regel bleibt bewusst stehen: Fährt jemand genau
+ein Fahrzeug, steht das Erfassungsformular direkt auf seiner Startseite.
+Tanken eintragen passiert an der Zapfsäule, im Stehen — was dort auch nur
+einen Tipp weiter weg liegt, wird nicht gemacht, und der Beleg landet im
+Handschuhfach. Die Kachel springt an das Formular, statt die Seite zu
+wechseln.
+
 Unten liegt zusätzlich eine feste Leiste für den schnellen Wechsel zwischen
 den Bereichen, die man mitten in der Arbeit braucht (auf großen Bildschirmen
 wandert die Navigation in den Kopfbereich):
@@ -138,6 +145,12 @@ App Store oder Play Store lässt sich die PWA zusätzlich mit
    | `0009_billing.sql` | Abo, Probemonat, Testcodes, Plattform-Admins |
    | `0010_platform_owner.sql` | Betreiber-Freigabeliste, dauerhafter Zugang für dessen Firma |
    | `0011_platform_stats.sql` | Kennzahlen und Kundenliste für das Betreiber-Dashboard |
+   | `0012_paywall.sql` | Bezahlschranke ab Registrierung, kein Probemonat von allein |
+   | `0013_reminder_cron.sql` | Täglicher Auftrag für die Fristen-Erinnerung (pg_cron, pg_net) |
+   | `0014_spaltenschutz.sql` | Sperrt Rolle, Firma und Abo-Felder gegen direkte Änderung |
+   | `0015_ausfuehrungsrechte.sql` | Entzieht PUBLIC das automatische Ausführungsrecht auf Funktionen |
+   | `0016_erinnerung_geheimnis.sql` | Eigenes Vault-Geheimnis für den Erinnerungslauf statt Service-Role-Key |
+   | `0017_checks_maengel_auftraege.sql` | Fahrzeugchecks, Mängel, Aufträge, Liter/CO₂-Spalten + Bucket `defects` |
 
    ```bash
    supabase link --project-ref <dein-projekt-ref>
