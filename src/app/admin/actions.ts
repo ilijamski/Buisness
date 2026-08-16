@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
-import { MODULES } from "@/lib/modules";
+import { MODULES, MODULE_KEYS } from "@/lib/modules";
+import { PRESET_BY_KEY, presetModules, type PresetKey } from "@/lib/presets";
 import type { Vehicle } from "@/lib/types";
 
 import type { ActionState } from "@/lib/action-state";
@@ -118,6 +119,56 @@ export async function updateVehicle(
 }
 
 /** Firmenweite Modul-Grundeinstellungen speichern. */
+/**
+ * Setzt die Modulauswahl auf ein Branchen-Profil.
+ *
+ * Der Weg über alle einundzwanzig Schalter ist für den Einstieg zu mühsam;
+ * hier genügt ein Klick. Die Pflicht-Markierungen bleiben unangetastet — sie
+ * sind eine bewusste Entscheidung des Admins und keine Frage der Branche.
+ */
+export async function applyModulePreset(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { profile } = await requireAdmin();
+
+  const key = String(formData.get("preset") ?? "");
+  const preset = PRESET_BY_KEY.get(key as PresetKey);
+  if (!preset) {
+    return { error: "Unbekanntes Profil.", success: false };
+  }
+
+  const supabase = await createClient();
+  const active = new Set(presetModules(preset, MODULE_KEYS));
+
+  const { data: existing } = await supabase
+    .from("company_module_settings")
+    .select("module_key, required");
+  const required = new Map(
+    (existing ?? []).map((row) => [row.module_key as string, row.required as boolean]),
+  );
+
+  const rows = MODULES.map((mod) => ({
+    company_id: profile.company_id!,
+    module_key: mod.key,
+    enabled: active.has(mod.key),
+    required: required.get(mod.key) ?? false,
+  }));
+
+  const { error } = await supabase
+    .from("company_module_settings")
+    .upsert(rows, { onConflict: "company_id,module_key" });
+
+  if (error) {
+    return { error: `Profil konnte nicht angewendet werden: ${error.message}`, success: false };
+  }
+
+  revalidatePath("/admin/module");
+  revalidatePath("/admin");
+  revalidatePath("/mitarbeiter");
+  return { error: null, success: true };
+}
+
 export async function saveCompanyModules(
   _prevState: ActionState,
   formData: FormData,
