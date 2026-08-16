@@ -37,13 +37,66 @@ Alle Module sind in [`src/lib/modules.ts`](./src/lib/modules.ts) definiert —
 Felder, Gruppen und überwachte Fristen kommen aus dieser einen Datei, sowohl
 für die Formulare als auch für die Fristenübersicht.
 
+## Abfahrtskontrolle, Mängel und Aufträge
+
+**Abfahrtskontrolle:** Der Fahrer geht die Checkliste Punkt für Punkt durch —
+einen Punkt pro Bildschirm, nicht als Liste zum Durchklicken. Punkte lassen
+sich als *in Ordnung*, *Mangel* oder *entfällt* beantworten, zu jedem Mangel
+gehören Notiz und Foto. Die Standardliste orientiert sich an DGUV Vorschrift
+70 (§ 36 UVV „Fahrzeuge"); sicherheitsrelevante Punkte sind markiert, und ein
+Mangel dort setzt den ganzen Check auf **nicht verkehrssicher**.
+
+Ein eingereichter Check ist **unveränderlich** — er ist ein Nachweis, und ein
+nachträglich änderbarer Nachweis wäre keiner. Der Admin kann ihn nur löschen.
+
+**Mängel** entstehen automatisch aus jeder Beanstandung, lassen sich aber auch
+einzeln melden. Sie sind ein eigener Vorgang mit Status (offen, in Arbeit,
+erledigt, verworfen), Termin, Kosten und Erledigungsvermerk — sonst würden sie
+in einer Liste alter Checks liegen bleiben. Melden darf jeder Fahrer,
+**bearbeiten nur der Admin**.
+
+**Aufträge** weist der Admin einem Fahrer und optional einem Fahrzeug zu. Der
+Fahrer schaltet sie weiter (geplant → unterwegs → erledigt) und kann eine
+Notiz hinterlassen; alles andere — Titel, Adresse, Termin, Zuweisung — bleibt
+für ihn gesperrt (Trigger `guard_job_driver_fields`, siehe Migration `0017`).
+
+## Verbrauch und CO₂
+
+Die getankte Menge wird als Zahl gespeichert (nicht nur im Notiztext) und beim
+Scannen des Belegs automatisch erkannt. Daraus rechnet
+[`src/lib/emissions.ts`](./src/lib/emissions.ts) Verbrauch in l/100 km und den
+CO₂-Ausstoß nach den Emissionsfaktoren des Umweltbundesamts (Tank-to-Wheel,
+also die Abgrenzung für GHG Protocol Scope 1).
+
+Der Verbrauch braucht mindestens zwei Tankvorgänge mit notiertem
+Kilometerstand. Die erste Füllung zählt dabei bewusst **nicht** mit: was vor
+dem ersten notierten Stand im Tank war, wurde nicht auf dieser Strecke
+verbraucht.
+
+Was ohne Hardware im Fahrzeug **nicht** geht — und deshalb auch nicht
+vorgetäuscht wird: Live-Ortung, Fahrverhalten-Bewertung, Verbrauch aus dem
+Bordcomputer, Fernauslesen des Tachografen, Reifendruck, Temperaturüberwachung.
+Das setzt eine Telematik-Box, einen OBD-Stecker oder Sensorik voraus.
+
 ## Bedienung
 
-Unten liegt eine feste Leiste für den Bereichswechsel (auf großen Bildschirmen
+Die Startseite ist ein **Einstieg, keine Aktenlage**: oben steht nur, was
+sofort erledigt werden muss (überfällige Fristen, kritische Mängel), darunter
+führen Kacheln in die Themenbereiche. Alles Weitere liegt hinter dem
+jeweiligen Bereich, statt auf einer Seite untereinander.
+
+Themenbereiche des Admins: Fahrzeuge · Fristen · Mängel · Fahrzeugchecks ·
+Aufträge · Team · Kosten · Verbrauch & CO₂ · Einstellungen.
+
+Der Fahrer sieht: Abfahrtskontrolle · Tanken erfassen · Mangel melden ·
+Meine Aufträge · Mein Fahrzeug · Einstellungen.
+
+Unten liegt zusätzlich eine feste Leiste für den schnellen Wechsel zwischen
+den Bereichen, die man mitten in der Arbeit braucht (auf großen Bildschirmen
 wandert die Navigation in den Kopfbereich):
 
-- **Admin:** Übersicht · Fahrzeuge · Team · Mehr
-- **Mitarbeiter:** Fahrzeuge · Profil · Mehr
+- **Admin:** Start · Fahrzeuge · Mängel · Aufträge · Mehr
+- **Mitarbeiter:** Start · Aufträge · Profil · Mehr
 
 Unter **Einstellungen** finden sich Darstellung (hell/dunkel/wie das Gerät),
 Standard-Fahrtart, E-Mail-Erinnerungen, Listendichte, Profil, Passwort ändern,
@@ -282,44 +335,52 @@ npm run dev
 Unter [http://localhost:3000](http://localhost:3000) auf **Firma anlegen**
 gehen — der erste Nutzer wird automatisch Admin.
 
-## 4. Fristen-Erinnerungen per E-Mail (Edge Function + Resend)
+## 4. Fristen-Erinnerungen per E-Mail (Edge Function)
 
 [`supabase/functions/fristen-reminder`](./supabase/functions/fristen-reminder)
 prüft täglich alle **aktiven** Fristen-Module und meldet jede Fälligkeit
-innerhalb der nächsten 30 Tage an die Admins der jeweiligen Firma — inklusive
-ablaufender Führerscheine. Deaktivierte Module werden übersprungen, und
-`reminder_log` sorgt dafür, dass jede Fälligkeit nur einmal gemeldet wird.
+innerhalb der eingestellten Vorlaufzeit an die Admins der jeweiligen Firma —
+inklusive ablaufender Führerscheine. Deaktivierte Module werden übersprungen,
+und `reminder_log` sorgt dafür, dass jede Fälligkeit nur einmal gemeldet wird.
+
+Zeitplan und Absicherung bringen die Migrationen `0013` und `0016` mit: der
+Cron-Auftrag `fristen-erinnerung` läuft täglich um 07:00 UTC und ruft die
+Function mit einem Geheimnis auf, das die Datenbank beim Einspielen selbst
+erzeugt und im [Vault](https://supabase.com/docs/guides/database/vault)
+ablegt. Ein Service-Role-Schlüssel wird dafür **nicht** gebraucht — die
+Function prüft die Kopfzeile `x-reminder-secret` und antwortet sonst mit 401.
+Sie wird deshalb mit `--no-verify-jwt` deployt:
 
 ```bash
-supabase functions deploy fristen-reminder
+supabase functions deploy fristen-reminder --no-verify-jwt
+```
+
+Einzurichten bleibt nur der **Versandweg**. Entweder SMTP über das eigene
+Postfach — dann kommen Erinnerungen aus demselben Postfach wie die
+Bestätigungs- und Passwort-Mails:
+
+```bash
+supabase secrets set SMTP_HOST=smtp.gmail.com SMTP_PORT=587
+supabase secrets set SMTP_USER=dein.konto@gmail.com
+supabase secrets set SMTP_PASS=<App-Passwort, nicht das Kontopasswort>
+supabase secrets set REMINDER_FROM_EMAIL=dein.konto@gmail.com
+```
+
+Oder alternativ Resend, falls kein eigenes Postfach genutzt werden soll:
+
+```bash
 supabase secrets set RESEND_API_KEY=re_xxx
 supabase secrets set REMINDER_FROM_EMAIL="Fuhrpark-Manager <noreply@deine-domain.de>"
 ```
 
-Täglichen Aufruf einrichten — entweder über **Dashboard → Database → Cron Jobs**
-(Template „Invoke Edge Function", Ziel `fristen-reminder`, z. B. `0 7 * * *`)
-oder per SQL mit `pg_cron` + `pg_net` (Extensions vorher aktivieren):
+Solange keins von beidem gesetzt ist, läuft der Auftrag folgenlos durch und
+meldet `Kein Versandweg eingerichtet`. Zum Prüfen von Hand:
 
 ```sql
-select cron.schedule(
-  'fristen-reminder-daily',
-  '0 7 * * *', -- täglich 07:00 UTC
-  $$
-  select net.http_post(
-    url := 'https://<dein-projekt-ref>.supabase.co/functions/v1/fristen-reminder',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <service-role-key>'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+select public.trigger_deadline_reminders();
+-- kurz warten, dann die Antwort der Function ansehen:
+select status_code, content from net._http_response order by id desc limit 1;
 ```
-
-Den `service-role-key` besser über
-[Supabase Vault](https://supabase.com/docs/guides/database/vault) einbinden
-statt im Klartext zu hinterlegen.
 
 Die **Vorlaufzeit** stellt jeder Admin unter *Einstellungen → Firma* ein
 (Standard 30 Tage); wer keine Erinnerungen möchte, schaltet sie unter

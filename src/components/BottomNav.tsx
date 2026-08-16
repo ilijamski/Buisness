@@ -63,25 +63,60 @@ const Icons = {
       <path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1" />
     </svg>
   ),
+  warning: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M12 4.5 21 19.5H3z" />
+      <path d="M12 10v4M12 16.8v.2" />
+    </svg>
+  ),
+  clipboard: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <rect x="5" y="4.5" width="14" height="16" rx="2" />
+      <path d="M9 4.5V3.5h6v1" />
+      <path d="M8.5 10h7M8.5 14h5" />
+    </svg>
+  ),
 };
 
+/**
+ * Die Leiste trägt nur noch die Bereiche, die man mitten in der Arbeit
+ * wechselt. Alles Übrige — Kosten, Auswertungen, Checks, Einstellungen —
+ * liegt hinter den Kacheln auf der Startseite. Eine Leiste mit sieben
+ * Symbolen wäre auf einem Telefon ohnehin nicht mehr treffsicher.
+ */
 function itemsFor(role: Role): NavItem[] {
   if (role === "admin") {
     return [
-      { href: "/admin", label: "Übersicht", icon: Icons.overview },
+      { href: "/admin", label: "Start", icon: Icons.overview },
       {
         href: "/admin/fahrzeuge",
         label: "Fahrzeuge",
         icon: Icons.truck,
         match: ["/fahrzeuge"],
       },
-      { href: "/admin/fristen", label: "Fristen", icon: Icons.calendar },
-      { href: "/admin/mitarbeiter", label: "Team", icon: Icons.team },
+      {
+        href: "/admin/maengel",
+        label: "Mängel",
+        icon: Icons.warning,
+        match: ["/admin/checks"],
+      },
+      {
+        href: "/admin/auftraege",
+        label: "Aufträge",
+        icon: Icons.clipboard,
+      },
       {
         href: "/einstellungen",
         label: "Mehr",
         icon: Icons.settings,
-        match: ["/admin/module", "/rechtliches"],
+        match: [
+          "/admin/module",
+          "/admin/kosten",
+          "/admin/auswertungen",
+          "/admin/mitarbeiter",
+          "/admin/fristen",
+          "/rechtliches",
+        ],
       },
     ];
   }
@@ -89,10 +124,11 @@ function itemsFor(role: Role): NavItem[] {
   return [
     {
       href: "/mitarbeiter",
-      label: "Fahrzeuge",
-      icon: Icons.truck,
-      match: ["/fahrzeuge"],
+      label: "Start",
+      icon: Icons.overview,
+      match: ["/fahrzeuge", "/checks"],
     },
+    { href: "/auftraege", label: "Aufträge", icon: Icons.clipboard },
     { href: "/profil", label: "Profil", icon: Icons.profile },
     {
       href: "/einstellungen",

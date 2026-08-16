@@ -51,10 +51,34 @@ export type ScanResult = {
   date: string;
   type: EntryType | "";
   mileage: string;
+  /** Getankte Menge als Zahl — Grundlage für Verbrauch und CO2. */
+  liters: string;
+  fuelType: string;
   note: string;
   confidence: ReceiptScan["confidence"];
   problem: string | null;
 };
+
+/**
+ * Kraftstoffbezeichnungen vom Beleg auf die Auswahlliste abbilden.
+ *
+ * Tankstellen schreiben „Super E10", „SuperE10", „Diesel B7" und ein
+ * Dutzend weitere Varianten. Was sich nicht sicher zuordnen lässt, bleibt
+ * leer — dann rechnet die CO2-Bilanz mit dem Standardfaktor, statt eine
+ * falsche Sorte zu behaupten.
+ */
+function normalizeFuel(fuel: string | null): string {
+  if (!fuel) return "";
+  const value = fuel.toLowerCase().replace(/\s+/g, "");
+
+  if (value.includes("e10")) return "super e10";
+  if (value.includes("diesel")) return "diesel";
+  if (value.includes("super")) return "super";
+  if (value.includes("benzin")) return "benzin";
+  if (value.includes("lpg") || value.includes("autogas")) return "lpg";
+  if (value.includes("cng") || value.includes("erdgas")) return "cng";
+  return "";
+}
 
 const SYSTEM = `Du liest Belege aus einem Fuhrpark: Tankquittungen, Werkstattrechnungen, Reifenrechnungen.
 
@@ -129,6 +153,8 @@ function emptyResult(problem: string): ScanResult {
     date: "",
     type: "",
     mileage: "",
+    liters: "",
+    fuelType: "",
     note: "",
     confidence: "niedrig",
     problem,
@@ -151,6 +177,8 @@ function toFormValues(scan: ReceiptScan): ScanResult {
     date: scan.date ?? "",
     type: scan.kind ?? "",
     mileage: scan.mileage === null ? "" : String(scan.mileage),
+    liters: scan.liters === null ? "" : scan.liters.toFixed(2),
+    fuelType: normalizeFuel(scan.fuel),
     note: noteParts.join(" · "),
     confidence: scan.confidence,
     problem: scan.problem,

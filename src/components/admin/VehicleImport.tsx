@@ -23,7 +23,7 @@ export function VehicleImport() {
           Erste Zeile sind die Spaltenüberschriften. <strong>Bezeichnung</strong> und{" "}
           <strong>Kennzeichen</strong> müssen dabei sein, alles Weitere ist optional.
           Erkannt werden zusätzlich die Beschriftungen aller aktiven Module — etwa
-          „HU fällig am" oder „Kilometerstand".
+          „HU fällig am&ldquo; oder „Kilometerstand&ldquo;.
         </p>
         <p>
           Trennzeichen Semikolon oder Komma, Datum als <code>31.12.2026</code> oder{" "}

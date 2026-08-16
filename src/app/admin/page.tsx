@@ -2,23 +2,32 @@ import Link from "next/link";
 import { requireActiveAdmin, loadCompanyModules } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/Header";
-import { Card, PageTitle, Badge, EmptyState } from "@/components/ui";
-import { VehicleList } from "@/components/VehicleList";
+import { Card, PageTitle, Badge, EmptyState, Notice } from "@/components/ui";
 import { GettingStarted, type Step } from "@/components/admin/GettingStarted";
-import { CostOverview } from "@/components/admin/CostOverview";
+import { TopicTiles, TileIcons, type Tile } from "@/components/TopicTiles";
 import {
   vehicleDeadlines,
   deadlineText,
   daysUntil,
   statusFor,
   bucketDeadlines,
-  HORIZON_DAYS,
 } from "@/lib/deadlines";
 import { isEnabled } from "@/lib/modules";
-import { summarizeCosts, costsByVehicle, costsByType } from "@/lib/costs";
-import { formatDate } from "@/lib/format";
-import type { AssignmentWithDriver, Entry, Profile, Vehicle } from "@/lib/types";
+import { summarizeCosts } from "@/lib/costs";
+import { isOpen } from "@/lib/checks";
+import { isMissingSchema, MISSING_SCHEMA_HINT } from "@/lib/schema";
+import { formatDate, formatCurrency } from "@/lib/format";
+import type { Defect, Entry, Job, Profile, Vehicle } from "@/lib/types";
 
+/**
+ * Startseite des Admins — Einstieg, keine Aktenlage.
+ *
+ * Vorher stand hier alles untereinander: Fristen, Führerscheine, Kosten,
+ * Flottenliste, Export. Das war eine Seite, durch die man scrollen musste,
+ * um festzustellen, dass nichts zu tun ist. Jetzt beantwortet sie genau zwei
+ * Fragen — „muss ich sofort etwas tun?" und „wo will ich hin?" — und alles
+ * Weitere liegt hinter dem jeweiligen Themenbereich.
+ */
 export default async function AdminPage() {
   const { profile, company } = await requireActiveAdmin();
   const config = await loadCompanyModules(profile.company_id!);
@@ -27,44 +36,36 @@ export default async function AdminPage() {
   const [
     { data: vehicles },
     { data: entries },
-    { data: assignments },
     { data: staff },
+    { data: defects, error: defectsError },
+    { data: jobs },
     { count: settingsCount },
+    { count: checkCount },
   ] = await Promise.all([
     supabase.from("vehicles").select("*").order("vehicle_number"),
     supabase.from("entries").select("*"),
-    supabase
-      .from("vehicle_assignments")
-      .select("*, profiles(id, full_name, email, employee_number)")
-      .is("ended_on", null),
     supabase.from("profiles").select("*"),
-    // Nur die Anzahl: verrät, ob der Admin die Module schon einmal bewusst
-    // eingestellt hat, ohne die Zeilen selbst zu laden.
+    supabase.from("defects").select("*"),
+    supabase.from("jobs").select("*"),
     supabase
       .from("company_module_settings")
       .select("module_key", { count: "exact", head: true }),
+    supabase.from("vehicle_checks").select("id", { count: "exact", head: true }),
   ]);
 
   const vehicleList = (vehicles as Vehicle[] | null) ?? [];
   const entryList = (entries as Entry[] | null) ?? [];
-  const assignmentList = (assignments as AssignmentWithDriver[] | null) ?? [];
   const staffList = (staff as Profile[] | null) ?? [];
+  const defectList = (defects as Defect[] | null) ?? [];
+  const jobList = (jobs as Job[] | null) ?? [];
 
-  const driverNames = new Map(
-    assignmentList.map((a) => [
-      a.vehicle_id,
-      a.profiles?.full_name || a.profiles?.email || "—",
-    ]),
-  );
-
-  // Alle überwachten Fristen der Flotte, nach Dringlichkeit gruppiert.
   const allDeadlines = vehicleList.flatMap((vehicle) =>
     vehicleDeadlines(vehicle, config).map((deadline) => ({ vehicle, deadline })),
   );
   const buckets = bucketDeadlines(allDeadlines);
-  const urgentCount = allDeadlines.filter((d) => d.deadline.status !== "ok").length;
+  const overdue = allDeadlines.filter((d) => d.deadline.status === "overdue");
+  const dueSoon = allDeadlines.filter((d) => d.deadline.status === "due-soon");
 
-  // Ablaufende Führerscheine (eigenes Modul)
   const expiringLicenses = isEnabled(config, "license")
     ? staffList
         .filter((p) => p.license_expires_on)
@@ -73,9 +74,17 @@ export default async function AdminPage() {
         .sort((a, b) => a.daysLeft - b.daysLeft)
     : [];
 
+  // Fehlt die Tabelle noch, ist „nichts offen" keine Aussage über die
+  // Flotte, sondern über die Datenbank. Die Kacheln sagen dann das.
+  const schemaPending = isMissingSchema(defectsError);
+
+  const openDefects = defectList.filter(isOpen);
+  const criticalDefects = openDefects.filter((d) => d.severity === "kritisch");
+  const openJobs = jobList.filter(
+    (j) => j.status === "geplant" || j.status === "unterwegs",
+  );
+
   const summary = summarizeCosts(entryList);
-  const perVehicle = costsByVehicle(vehicleList, entryList);
-  const perType = costsByType(entryList);
 
   const steps: Step[] = [
     {
@@ -104,137 +113,171 @@ export default async function AdminPage() {
     },
   ];
 
+  // Nur was heute wirklich drängt. Alles andere hat seinen Bereich.
+  const attention = [
+    ...overdue.slice(0, 4).map(({ vehicle, deadline }) => ({
+      key: `frist-${vehicle.id}-${deadline.moduleKey}`,
+      href: `/fahrzeuge/${vehicle.id}`,
+      title: `${deadline.label} überfällig`,
+      detail: `${vehicle.name} · ${vehicle.plate} · ${formatDate(deadline.date)}`,
+      badge: deadlineText(deadline),
+      tone: "danger" as const,
+    })),
+    ...criticalDefects.slice(0, 4).map((defect) => ({
+      key: `mangel-${defect.id}`,
+      href: "/admin/maengel",
+      title: defect.title,
+      detail: "Kritischer Mangel — Fahrzeug nicht verkehrssicher",
+      badge: "Kritisch",
+      tone: "danger" as const,
+    })),
+    ...expiringLicenses
+      .filter((item) => item.daysLeft < 0)
+      .slice(0, 2)
+      .map(({ profile: person, daysLeft }) => ({
+        key: `fs-${person.id}`,
+        href: "/admin/mitarbeiter",
+        title: "Führerschein abgelaufen",
+        detail: person.full_name ?? person.email,
+        badge: `seit ${Math.abs(daysLeft)} Tagen`,
+        tone: "danger" as const,
+      })),
+  ];
+
+  const tiles: Tile[] = [
+    {
+      href: "/admin/fahrzeuge",
+      label: "Fahrzeuge",
+      status:
+        vehicleList.length === 0
+          ? "Noch keins angelegt"
+          : `${vehicleList.length} in der Flotte`,
+      icon: TileIcons.vehicles,
+    },
+    {
+      href: "/admin/fristen",
+      label: "Fristen",
+      status:
+        overdue.length > 0
+          ? `${overdue.length} überfällig`
+          : dueSoon.length > 0
+            ? `${dueSoon.length} in 30 Tagen`
+            : "Nichts fällig",
+      icon: TileIcons.calendar,
+      tone: overdue.length > 0 ? "danger" : dueSoon.length > 0 ? "warn" : "neutral",
+      count: overdue.length + dueSoon.length,
+    },
+    {
+      href: "/admin/maengel",
+      label: "Mängel",
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : openDefects.length === 0
+          ? "Nichts offen"
+          : `${openDefects.length} offen${criticalDefects.length > 0 ? `, ${criticalDefects.length} kritisch` : ""}`,
+      icon: TileIcons.warning,
+      tone:
+        criticalDefects.length > 0 ? "danger" : openDefects.length > 0 ? "warn" : "neutral",
+      count: openDefects.length,
+    },
+    {
+      href: "/admin/checks",
+      label: "Fahrzeugchecks",
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : (checkCount ?? 0) === 0
+          ? "Noch keiner durchgeführt"
+          : `${checkCount} durchgeführt`,
+      icon: TileIcons.check,
+    },
+    {
+      href: "/admin/auftraege",
+      label: "Aufträge",
+      status: schemaPending
+        ? "Noch nicht eingerichtet"
+        : openJobs.length === 0
+          ? "Nichts geplant"
+          : `${openJobs.length} offen`,
+      icon: TileIcons.clipboard,
+      count: openJobs.length,
+    },
+    {
+      href: "/admin/mitarbeiter",
+      label: "Team",
+      status: `${staffList.length} ${staffList.length === 1 ? "Person" : "Personen"}`,
+      icon: TileIcons.team,
+    },
+    {
+      href: "/admin/kosten",
+      label: "Kosten",
+      status:
+        summary.thisMonth > 0
+          ? `${formatCurrency(summary.thisMonth)} diesen Monat`
+          : "Noch nichts erfasst",
+      icon: TileIcons.chart,
+    },
+    {
+      href: "/admin/auswertungen",
+      label: "Verbrauch & CO₂",
+      status: "Liter, Verbrauch, Emissionen",
+      icon: TileIcons.leaf,
+    },
+    {
+      href: "/einstellungen",
+      label: "Einstellungen",
+      status: "Module, Firma, Konto",
+      icon: TileIcons.settings,
+    },
+  ];
+
   return (
     <>
       <Header profile={profile} company={company} />
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
         <PageTitle
-          title="Übersicht"
+          title={company?.name ?? "Übersicht"}
           subtitle={`${vehicleList.length} ${vehicleList.length === 1 ? "Fahrzeug" : "Fahrzeuge"} · ${staffList.length} ${staffList.length === 1 ? "Mitarbeiter" : "Mitarbeiter"}`}
         />
 
         <GettingStarted steps={steps} />
 
-        {/* Fristen zuerst: der eigentliche Grund, warum jemand die App öffnet. */}
-        <Card
-          title="Fristen"
-          action={
-            urgentCount > 0 ? (
-              <Badge tone={buckets[0]?.key === "overdue" ? "danger" : "warn"}>
-                {urgentCount} offen
-              </Badge>
-            ) : undefined
-          }
-        >
-          {buckets.length === 0 ? (
-            <EmptyState>
-              {allDeadlines.length === 0
-                ? "Noch keine Fristen hinterlegt. Trag beim Fahrzeug ein HU- oder Versicherungsdatum ein."
-                : `Nichts fällig in den nächsten ${HORIZON_DAYS} Tagen.`}
-            </EmptyState>
-          ) : (
-            <div className="space-y-4">
-              {buckets.map((bucket) => (
-                <div key={bucket.key}>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-semibold">
-                      {bucket.label}{" "}
-                      <span className="font-normal text-muted tabular-nums">
-                        ({bucket.items.length})
-                      </span>
-                    </h3>
-                    <p className="text-xs text-muted">{bucket.hint}</p>
-                  </div>
+        {schemaPending && <Notice kind="info">{MISSING_SCHEMA_HINT}</Notice>}
 
-                  <ul className="mt-1 divide-y divide-border border-t border-border">
-                    {bucket.items.slice(0, 10).map(({ vehicle, deadline }) => (
-                      <li
-                        key={`${vehicle.id}-${deadline.moduleKey}`}
-                        className="flex flex-wrap items-center justify-between gap-2 py-2"
-                      >
-                        <div className="min-w-0">
-                          <Link
-                            href={`/fahrzeuge/${vehicle.id}`}
-                            className="text-sm font-medium underline-offset-2 hover:underline"
-                          >
-                            {vehicle.name}
-                          </Link>
-                          <p className="text-xs text-muted">
-                            {vehicle.plate} · {deadline.label} · {formatDate(deadline.date)}
-                          </p>
-                        </div>
-                        <Badge tone={bucket.tone}>{deadlineText(deadline)}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {bucket.items.length > 10 && (
-                    <p className="pt-2 text-xs text-muted">
-                      und {bucket.items.length - 10} weitere
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {expiringLicenses.length > 0 && (
-          <Card title="Führerscheine">
+        {attention.length > 0 && (
+          <Card
+            title="Braucht deine Aufmerksamkeit"
+            action={<Badge tone="danger">{attention.length}</Badge>}
+          >
             <ul className="divide-y divide-border">
-              {expiringLicenses.map(({ profile: person, daysLeft }) => (
-                <li
-                  key={person.id}
-                  className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{person.full_name ?? person.email}</p>
-                    <p className="text-xs text-muted">
-                      {person.license_classes ?? "Klassen unbekannt"} ·{" "}
-                      {formatDate(person.license_expires_on!)}
-                    </p>
-                  </div>
-                  <Badge tone={daysLeft < 0 ? "danger" : "warn"}>
-                    {daysLeft < 0 ? `seit ${Math.abs(daysLeft)} Tagen abgelaufen` : `in ${daysLeft} Tagen`}
-                  </Badge>
+              {attention.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-xs text-muted">{item.detail}</p>
+                    </div>
+                    <Badge tone={item.tone}>{item.badge}</Badge>
+                  </Link>
                 </li>
               ))}
             </ul>
           </Card>
         )}
 
-        <CostOverview summary={summary} perVehicle={perVehicle} perType={perType} />
+        {attention.length === 0 && buckets.length === 0 && vehicleList.length > 0 && (
+          <Card>
+            <EmptyState>
+              Nichts Dringendes. Alle überwachten Fristen liegen außerhalb der
+              Vorwarnzeit, und es sind keine Mängel offen.
+            </EmptyState>
+          </Card>
+        )}
 
-        <Card title="Flotte">
-          <VehicleList vehicles={vehicleList} config={config} driverNames={driverNames} />
-        </Card>
-
-        <Card title="Export">
-          <p className="mb-3 text-sm text-muted">
-            Als CSV für Excel oder den Steuerberater (Semikolon-getrennt).
-          </p>
-          {/* eslint-disable @next/next/no-html-link-for-pages --
-              Downloads brauchen echte Navigation; <Link> würde clientseitig
-              routen und die Datei nie ausliefern. */}
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/export/eintraege"
-              className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
-            >
-              Einträge exportieren
-            </a>
-            {isEnabled(config, "logbook") && (
-              <a
-                href="/export/fahrtenbuch"
-                className="inline-flex items-center rounded border border-border-strong bg-bg px-3 py-1.5 text-sm font-medium hover:bg-page"
-              >
-                Fahrtenbuch exportieren
-              </a>
-            )}
-          </div>
-          {/* eslint-enable @next/next/no-html-link-for-pages */}
-        </Card>
+        <TopicTiles tiles={tiles} />
       </main>
     </>
   );

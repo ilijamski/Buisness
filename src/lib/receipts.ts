@@ -3,6 +3,8 @@ import type { Database } from "@/lib/types";
 
 export const RECEIPTS_BUCKET = "receipts";
 export const DOCUMENTS_BUCKET = "documents";
+/** Fotos zu Mängeln und Fahrzeugchecks — getrennt von den Belegen. */
+export const DEFECTS_BUCKET = "defects";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 /**

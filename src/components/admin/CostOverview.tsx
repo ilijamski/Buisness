@@ -157,7 +157,7 @@ export function CostOverview({
           </div>
           {perVehicle.some((v) => v.perKilometer === null) && (
             <p className="mt-2 text-xs text-muted">
-              „je km" erscheint, sobald für das Fahrzeug ein Kilometerstand gepflegt ist.
+              „je km&ldquo; erscheint, sobald für das Fahrzeug ein Kilometerstand gepflegt ist.
             </p>
           )}
         </div>
