@@ -32,10 +32,17 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   // Rechtstexte und die Passwort-Wiederherstellung müssen auch ohne
   // Anmeldung erreichbar sein.
+  //
+  // `/passwort-neu` gehört ausdrücklich dazu: Wer aus der Reset-Mail kommt,
+  // hat noch keine Sitzung — die entsteht erst auf dieser Seite aus dem
+  // Token im Link. Fehlte der Pfad hier, würde genau der Nutzer, der sein
+  // Passwort zurücksetzen will, zum Login geschickt, wo er sich mangels
+  // Passwort nicht anmelden kann. Der Link führte damit im Kreis.
   const isPublic =
     path === "/login" ||
     path === "/registrieren" ||
     path === "/passwort-vergessen" ||
+    path === "/passwort-neu" ||
     path.startsWith("/auth") ||
     path.startsWith("/rechtliches");
 

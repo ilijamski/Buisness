@@ -38,5 +38,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Kein `code`, kein `token_hash` — dann kann Supabase die Tokens im
+  // Fragment hinter `#` geliefert haben (impliziter Ablauf). Das Fragment
+  // erreicht den Server grundsätzlich nicht, hier ist also nichts zu sehen,
+  // obwohl der Link gültig ist. Beim Weiterleiten bleibt es erhalten, weil
+  // das neue Ziel selbst kein Fragment mitbringt — die Seite kann die
+  // Tokens dann im Browser auslesen.
+  //
+  // Nur für die Passwort-Wiederherstellung, damit ein wirklich kaputter
+  // Link in allen anderen Fällen weiterhin als solcher gemeldet wird.
+  if (target.startsWith("/passwort-neu")) {
+    return NextResponse.redirect(`${origin}${target}`);
+  }
+
   return NextResponse.redirect(`${origin}/login?fehler=link-ungueltig`);
 }
