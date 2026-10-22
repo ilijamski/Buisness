@@ -116,7 +116,7 @@
     background: var(--panel-2);
     padding: 2px 6px;
     border-radius: 6px;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   a { color: var(--accent); }
   .dl {
@@ -268,15 +268,15 @@
         <a class="dl" href="autoclicker.ahk" download="autoclicker.ahk">⬇ autoclicker.ahk herunterladen</a>
         <ol>
           <li>Einmalig <a href="https://www.autohotkey.com" target="_blank" rel="noopener">AutoHotkey v2</a> installieren.</li>
-          <li><code>autoclicker.ahk</code> doppelklicken – unten rechts erscheint das grüne „H“.</li>
-          <li>Minecraft öffnen und <kbd>F6</kbd> drücken: Es wird geklickt. Nochmal <kbd>F6</kbd> stoppt.</li>
+          <li><code>autoclicker.ahk</code> doppelklicken – unten rechts in der Taskleiste (ggf. unter „^“) erscheint das grüne „H“.</li>
+          <li>Minecraft öffnen und <kbd>F6</kbd> drücken: hoher Ton, es wird geklickt. Nochmal <kbd>F6</kbd>: tiefer Ton, Stopp.</li>
         </ol>
         <h3>Tasten</h3>
         <div class="keys">
           <kbd>F6</kbd><span>Klicken an / aus</span>
           <kbd>F7</kbd><span>Links- / Rechtsklick wechseln</span>
           <kbd>F8</kbd><span>langsamer</span>
-          <kbd>F9</kbd><span>schneller (bis 50 Klicks/s, Start: 10)</span>
+          <kbd>F9</kbd><span>schneller (Start: 10, bis 50 Klicks/s)</span>
           <kbd>F10</kbd><span>Autoclicker beenden</span>
         </div>
         <h3>Immer sofort bereit</h3>
@@ -288,7 +288,7 @@
         <ol>
           <li>Python 3 installieren (Mac: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>).</li>
           <li>Im Terminal einmalig: <code>pip3 install pynput</code></li>
-          <li>Starten: <code>python3 autoclicker.py</code> (oder z. B. <code>--cps 15 --button right</code>).</li>
+          <li>Starten: <code>cd ~/Downloads</code> und dann <code>python3 autoclicker.py</code> (oder z. B. <code>--cps 15 --button right</code>).</li>
           <li>Zum Spiel wechseln und <kbd>F6</kbd> drücken. Auf dem Mac ggf. <kbd>fn</kbd>+<kbd>F6</kbd>.</li>
         </ol>
         <div class="keys">
@@ -298,7 +298,7 @@
           <kbd>F9</kbd><span>schneller</span>
           <kbd>F10</kbd><span>beenden</span>
         </div>
-        <p class="note">Mac: Unter Systemeinstellungen → Datenschutz &amp; Sicherheit dem Terminal „Bedienungshilfen“ und „Eingabeüberwachung“ erlauben, sonst kommen keine Klicks an. Das Python-Programm läuft auch unter Windows.</p>
+        <p class="note">Mac: Unter Systemeinstellungen → Datenschutz &amp; Sicherheit dem Terminal (bzw. dem Programm, in dem du startest) „Bedienungshilfen“ und „Eingabeüberwachung“ erlauben und es danach neu starten, sonst kommen keine Klicks an.<br>Linux: funktioniert nur mit X11, nicht mit Wayland. Unter Debian/Ubuntu <code>sudo apt install python3-pynput</code> statt pip. Das Python-Programm läuft auch unter Windows.</p>
       </div>
 
       <div id="pfIos" class="platform" hidden>
@@ -306,35 +306,37 @@
         <h3>1. Schalter anlegen</h3>
         <ol>
           <li>Einstellungen → Bedienungshilfen → Schaltersteuerung → Schalter → <b>Neuen Schalter hinzufügen</b>.</li>
-          <li><b>Bildschirm</b> → <b>Vollbild</b> → Aktion: <b>Tippen</b>.</li>
+          <li><b>Bildschirm</b> → <b>Vollbild</b> → Aktion: <b>Objekt auswählen</b>.</li>
         </ol>
         <h3>2. Rezept mit Klick-Geste</h3>
         <ol>
-          <li>Schaltersteuerung → Rezepte → <b>Neues Rezept erstellen</b>, Name: „Autoclicker“.</li>
+          <li>Schaltersteuerung → <b>Rezepte</b> (bei neuem iOS: <b>Abläufe</b>) → <b>Neues Rezept erstellen</b>, Name: „Autoclicker“. <b>Timeout</b> auf „Aus“ lassen.</li>
           <li><b>Schalter zuweisen</b> → Vollbild → <b>Eigene Geste</b>.</li>
-          <li>Jetzt schnell <b>viele Male</b> auf die Stelle tippen, die geklickt werden soll (z. B. Mitte des Bildschirms) → <b>Sichern</b>.</li>
-          <li>Zurück zu Rezepte → <b>Rezept starten</b> → „Autoclicker“ wählen.</li>
+          <li>Jetzt schnell <b>viele Male</b> genau in die <b>Mitte</b> des Bildschirms tippen (die Mitte bleibt auch im Querformat von Minecraft gleich) → <b>Sichern</b>. So schnell und so oft du hier tippst, wird später geklickt.</li>
+          <li>Zurück zu Rezepte/Abläufe → <b>Rezept starten</b> → „Autoclicker“ wählen.</li>
         </ol>
         <h3>3. Schnell an/aus</h3>
         <ol>
           <li>Bedienungshilfen → <b>Kurzbefehl</b> → <b>Schaltersteuerung</b> ankreuzen.</li>
-          <li>In Minecraft: <b>Seitentaste 3× drücken</b> → Schaltersteuerung ist an. Einmal auf den Bildschirm tippen spielt die Klick-Geste ab.</li>
+          <li>In Minecraft: <b>Seitentaste 3× drücken</b> (iPhone mit Home-Taste: Home-Taste) → Schaltersteuerung ist an. Sind mehrere Kurzbefehle angekreuzt, „Schaltersteuerung“ im Menü wählen.</li>
+          <li>Jeder Tipp auf den Bildschirm spielt die aufgezeichnete Klickfolge einmal ab – für Dauerklicken immer wieder tippen.</li>
           <li>Zum Beenden wieder Seitentaste 3× drücken.</li>
         </ol>
         <p class="note">Solange die Schaltersteuerung an ist, löst jeder Tipp die Geste aus. Normales Bedienen geht erst nach dem Ausschalten wieder.</p>
       </div>
 
       <div id="pfAndroid" class="platform" hidden>
-        <p>Android braucht eine Autoclicker-App mit Bedienungshilfen-Recht. Empfehlung: <b>Klick'r</b> (kostenlos, Open Source, ohne Werbung).</p>
-        <a class="dl" href="https://play.google.com/store/search?q=Klick%27r%20auto%20clicker&amp;c=apps" target="_blank" rel="noopener">Klick'r im Play Store suchen</a>
+        <p>Android braucht eine Autoclicker-App mit Bedienungshilfen-Recht. Empfehlung: <b>Klick'r</b> (kostenlos, Open Source; im Play Store mit Werbung, über F-Droid werbefrei).</p>
+        <a class="dl" href="https://play.google.com/store/apps/details?id=com.buzbuz.smartautoclicker" target="_blank" rel="noopener">Klick'r im Play Store</a>
+        <a class="dl" href="https://f-droid.org/packages/com.buzbuz.smartautoclicker/" target="_blank" rel="noopener">Klick'r bei F-Droid</a>
         <ol>
-          <li>App installieren und öffnen, das Recht unter <b>Bedienungshilfen</b> sowie „Über anderen Apps einblenden“ erlauben.</li>
-          <li>Neues Szenario anlegen, einen Klickpunkt setzen und das Intervall (z. B. 100 ms) einstellen.</li>
+          <li>App installieren und öffnen, das Recht unter <b>Bedienungshilfen</b> sowie „Über anderen Apps einblenden“ erlauben. Ist das Recht ausgegraut (F-Droid, Android 13+): App-Info → ⋮ → „Eingeschränkte Einstellungen zulassen“.</li>
+          <li>Neues Szenario anlegen (einfacher Modus, nicht „Smart“), einen Klickpunkt setzen und das Intervall (z. B. 100 ms) einstellen.</li>
           <li>Minecraft öffnen: Über die schwebende Leiste mit ▶ starten und ■ stoppen.</li>
         </ol>
       </div>
 
-      <p class="note">Hinweis: Auf vielen Minecraft-Servern sind Autoclicker verboten und können zum Bann führen. In der Einzelspieler-Welt ist das kein Problem.</p>
+      <p class="note">Hinweis: Auf vielen Minecraft-Servern sind Autoclicker verboten und können zum Bann führen. In der Einzelspieler-Welt ist das kein Problem. Minecraft Java: Seit 1.9 machen Schläge über ca. 4 Klicks/s kaum mehr Schaden (Angriffs-Abklingzeit) – zum Abbauen oder Bauen helfen schnelle Klicks trotzdem.</p>
     </div>
   </section>
 
@@ -381,7 +383,7 @@
         <label class="check" id="vibrateRow"><input id="vibrate" type="checkbox"> Vibration beim Klicken</label>
         <div class="buttons">
           <button class="btn" id="placeBtn" type="button">Punkt setzen</button>
-          <button class="btn" id="clearBtn" type="button">Punkte löschen</button>
+          <button class="btn" id="clearBtn" type="button">Löschen</button>
           <button class="btn" id="resetBtn" type="button">Zurücksetzen</button>
           <button class="btn" id="startBtn" type="button">Start (Leertaste)</button>
         </div>
@@ -421,7 +423,7 @@
   let startedAt = 0;
   let lastRunSecs = 0;
   let lastVibrate = 0;
-  let ripplesThisTick = 0;
+  let liveRipples = 0;
   // Klicks je 100-ms-Fenster für die Anzeige „Klicks / Sek.“.
   let buckets = [];
 
@@ -529,14 +531,14 @@
   }
 
   function ripple(x, y) {
-    if (document.hidden || ripplesThisTick >= 8) return;
-    ripplesThisTick++;
+    if (document.hidden || liveRipples >= 20) return;
+    liveRipples++;
     const r = document.createElement('div');
     r.className = 'ripple';
     r.style.left = x + 'px';
     r.style.top = y + 'px';
     area.appendChild(r);
-    setTimeout(() => r.remove(), 450);
+    setTimeout(() => { r.remove(); liveRipples--; }, 450);
   }
 
   // Klickt das Element unter einem Punkt der Klickfläche. Liegt der Punkt außerhalb des
@@ -544,21 +546,22 @@
   function clickAt(clientX, clientY) {
     const el = document.elementFromPoint(clientX, clientY);
     if (!el || !area.contains(el)) return false;
-    const rect = area.getBoundingClientRect();
-    ripple(clientX - rect.left, clientY - rect.top);
     if (el !== area) {
       el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX, clientY }));
     }
     return true;
   }
 
-  function targets(cfg) {
+  function absolutePoints() {
     if (!points.length) {
       const t = target.getBoundingClientRect();
       return [{ x: t.left + t.width / 2, y: t.top + t.height / 2 }];
     }
     const rect = area.getBoundingClientRect();
-    const abs = points.map((p) => ({ x: rect.left + p.x * rect.width, y: rect.top + p.y * rect.height }));
+    return points.map((p) => ({ x: rect.left + p.x * rect.width, y: rect.top + p.y * rect.height }));
+  }
+
+  function targets(cfg, abs) {
     if (cfg.order === 'all') return abs;
     const p = abs[cycleIndex % abs.length];
     cycleIndex = (cycleIndex + 1) % abs.length;
@@ -579,15 +582,21 @@
     if (!running) return;
     const cfg = config();
     if (cfg.duration && performance.now() - startedAt >= cfg.duration * 1000) return stop();
-    ripplesThisTick = 0;
+    const abs = absolutePoints();
+    const hitPoints = new Set();
     let clicked = false;
     outer: for (let b = 0; b < cfg.burst; b++) {
-      for (const p of targets(cfg)) {
+      for (const p of targets(cfg, abs)) {
         if (!clickAt(p.x, p.y)) continue;
         clicked = true;
+        hitPoints.add(p);
         countClick();
         if (cfg.limit && runClicks >= cfg.limit) break outer;
       }
+    }
+    if (hitPoints.size) {
+      const rect = area.getBoundingClientRect();
+      for (const p of hitPoints) ripple(p.x - rect.left, p.y - rect.top);
     }
     if (clicked && els.vibrate.checked && canVibrate) {
       const now = performance.now();

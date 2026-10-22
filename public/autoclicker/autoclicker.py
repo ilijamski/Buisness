@@ -28,7 +28,6 @@ class AutoClicker:
         self.running = threading.Event()
         self.quit = threading.Event()
         self.mouse = mouse.Controller()
-        self.clicks = 0
 
     def loop(self):
         next_at = time.perf_counter()
@@ -40,7 +39,6 @@ class AutoClicker:
                 time.sleep(min(next_at - now, 0.05))
                 continue
             self.mouse.click(self.button)
-            self.clicks += 1
             # Feste Taktung statt sleep(1/cps), damit die Rate auch bei langsamen Klicks stimmt.
             next_at = max(next_at + 1 / self.cps, now)
 
