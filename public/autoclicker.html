@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Autoclicker</title>
+<meta name="description" content="Autoclicker mit Klickpunkten, Intervall, Limit und Statistik.">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Autoclicker">
+<link rel="apple-touch-icon" id="touchIcon">
+<link rel="icon" id="favIcon">
+<link rel="manifest" id="manifestLink">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #20242d;
+    --line: #2c313c;
+    --text: #e9ecf1;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --accent-2: #3a6fd8;
+    --good: #2fbf71;
+    --bad: #ef5350;
+    --marker: #ffb020;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f6fa;
+      --panel: #ffffff;
+      --panel-2: #eef1f6;
+      --line: #d9dee7;
+      --text: #151821;
+      --muted: #5d6676;
+      --accent: #2f6fe8;
+      --accent-2: #2459c0;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 8px;
+  }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  .status {
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+  }
+  .status.on { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 16px 16px;
+    min-height: 0;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 10px;
+  }
+  .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+
+  #area {
+    position: relative;
+    flex: 1;
+    min-height: 220px;
+    background: var(--panel);
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #area.placing { border-color: var(--marker); }
+  #hint {
+    position: absolute;
+    inset: auto 0 10px 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    pointer-events: none;
+    padding: 0 12px;
+  }
+  #target {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 0;
+    background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-2));
+    color: #fff;
+    font: 600 16px system-ui, sans-serif;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
+    cursor: pointer;
+    transition: transform .06s;
+  }
+  #target.hit { transform: translate(-50%, -50%) scale(.94); }
+  #target small { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
+  #targetCount { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+
+  .marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    border: 2px solid var(--marker);
+    background: color-mix(in srgb, var(--marker) 25%, transparent);
+    color: var(--marker);
+    font: 700 13px/26px system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .ripple {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--marker);
+    pointer-events: none;
+    animation: ripple .4s ease-out forwards;
+    z-index: 2;
+  }
+  @keyframes ripple {
+    from { transform: scale(1); opacity: .8; }
+    to { transform: scale(5); opacity: 0; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input[type="number"], select {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+  .buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  button.btn {
+    font: 600 15px system-ui, sans-serif;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.btn:active { transform: scale(.98); }
+  button.btn.active { border-color: var(--marker); color: var(--marker); }
+  #startBtn { grid-column: 1 / -1; background: var(--good); border-color: var(--good); color: #fff; font-size: 17px; }
+  #startBtn.running { background: var(--bad); border-color: var(--bad); }
+
+  @media (min-width: 760px) {
+    main { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; }
+    .stats { grid-column: 1 / -1; }
+    .panel { align-content: start; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Autoclicker</h1>
+  <span class="status" id="status">Gestoppt</span>
+</header>
+
+<main>
+  <section class="stats" aria-label="Statistik">
+    <div class="stat"><b id="totalClicks">0</b><span>Klicks gesamt</span></div>
+    <div class="stat"><b id="cpsNow">0</b><span>Klicks / Sek.</span></div>
+    <div class="stat"><b id="runTime">0,0 s</b><span>Laufzeit</span></div>
+  </section>
+
+  <section id="area" aria-label="Klickfläche">
+    <button id="target" type="button"><span id="targetCount">0</span><small>Treffer</small></button>
+    <div id="hint">Ohne Klickpunkte klickt der Autoclicker auf den blauen Knopf.</div>
+  </section>
+
+  <section class="panel" aria-label="Einstellungen">
+    <div class="row">
+      <label>Intervall (ms)
+        <input id="interval" type="number" min="10" max="60000" step="10" value="100" inputmode="numeric">
+      </label>
+      <label>Klicks pro Durchgang
+        <input id="burst" type="number" min="1" max="50" step="1" value="1" inputmode="numeric">
+      </label>
+    </div>
+    <div class="row">
+      <label>Stopp nach Klicks (0 = nie)
+        <input id="limit" type="number" min="0" step="1" value="0" inputmode="numeric">
+      </label>
+      <label>Stopp nach Sekunden (0 = nie)
+        <input id="duration" type="number" min="0" step="1" value="0" inputmode="numeric">
+      </label>
+    </div>
+    <div class="row">
+      <label>Zufällige Abweichung (ms)
+        <input id="jitter" type="number" min="0" max="5000" step="10" value="0" inputmode="numeric">
+      </label>
+      <label>Reihenfolge der Punkte
+        <select id="order">
+          <option value="all">Alle gleichzeitig</option>
+          <option value="cycle">Nacheinander</option>
+        </select>
+      </label>
+    </div>
+    <label class="check"><input id="vibrate" type="checkbox"> Vibration bei jedem Klick</label>
+    <div class="buttons">
+      <button class="btn" id="placeBtn" type="button">Punkt setzen</button>
+      <button class="btn" id="clearBtn" type="button">Punkte löschen</button>
+      <button class="btn" id="resetBtn" type="button">Zähler zurück</button>
+      <button class="btn" id="startBtn" type="button">Start</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const area = $('area');
+  const target = $('target');
+  const els = {
+    status: $('status'), total: $('totalClicks'), cps: $('cpsNow'), time: $('runTime'),
+    targetCount: $('targetCount'), hint: $('hint'),
+    interval: $('interval'), burst: $('burst'), limit: $('limit'), duration: $('duration'),
+    jitter: $('jitter'), order: $('order'), vibrate: $('vibrate'),
+    placeBtn: $('placeBtn'), clearBtn: $('clearBtn'), resetBtn: $('resetBtn'), startBtn: $('startBtn'),
+  };
+
+  const STORE_KEY = 'autoclicker.v1';
+  const SETTINGS = ['interval', 'burst', 'limit', 'duration', 'jitter', 'order', 'vibrate'];
+
+  // Punkte werden relativ zur Klickfläche (0..1) gespeichert, damit sie Drehen und Größenänderungen überstehen.
+  let points = [];
+  let placing = false;
+  let running = false;
+  let timer = null;
+  let cycleIndex = 0;
+  let total = 0;
+  let runClicks = 0;
+  let hits = 0;
+  let startedAt = 0;
+  let recent = [];
+
+  function load() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      for (const key of SETTINGS) {
+        if (data[key] === undefined) continue;
+        if (key === 'vibrate') els.vibrate.checked = !!data.vibrate;
+        else els[key].value = data[key];
+      }
+      if (Array.isArray(data.points)) {
+        points = data.points.filter((p) => p && isFinite(p.x) && isFinite(p.y));
+      }
+    } catch (e) { /* Speicher nicht verfügbar – mit Standardwerten weiter */ }
+  }
+
+  function save() {
+    try {
+      const data = { points };
+      for (const key of SETTINGS) data[key] = key === 'vibrate' ? els.vibrate.checked : els[key].value;
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    } catch (e) { /* ignorieren */ }
+  }
+
+  function num(el, min, max, fallback) {
+    const v = Number(el.value);
+    if (!isFinite(v)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(v)));
+  }
+
+  function config() {
+    return {
+      interval: num(els.interval, 10, 60000, 100),
+      burst: num(els.burst, 1, 50, 1),
+      limit: num(els.limit, 0, 1e9, 0),
+      duration: num(els.duration, 0, 86400, 0),
+      jitter: num(els.jitter, 0, 5000, 0),
+      order: els.order.value === 'cycle' ? 'cycle' : 'all',
+    };
+  }
+
+  function renderMarkers() {
+    area.querySelectorAll('.marker').forEach((m) => m.remove());
+    points.forEach((p, i) => {
+      const m = document.createElement('div');
+      m.className = 'marker';
+      m.style.left = (p.x * 100) + '%';
+      m.style.top = (p.y * 100) + '%';
+      m.textContent = String(i + 1);
+      area.appendChild(m);
+    });
+    els.hint.textContent = placing
+      ? 'Tippe in die Fläche, um Klickpunkte zu setzen. Danach „Fertig“.'
+      : points.length
+        ? points.length + ' Klickpunkt' + (points.length === 1 ? '' : 'e') + ' gesetzt.'
+        : 'Ohne Klickpunkte klickt der Autoclicker auf den blauen Knopf.';
+  }
+
+  function setPlacing(on) {
+    placing = on;
+    area.classList.toggle('placing', on);
+    els.placeBtn.classList.toggle('active', on);
+    els.placeBtn.textContent = on ? 'Fertig' : 'Punkt setzen';
+    renderMarkers();
+  }
+
+  function ripple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    area.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  }
+
+  // Löst an einer Bildschirmposition einen echten Klick auf das Element darunter aus.
+  function clickAt(clientX, clientY) {
+    const rect = area.getBoundingClientRect();
+    ripple(clientX - rect.left, clientY - rect.top);
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el || !area.contains(el) || el === area) return;
+    const opts = { bubbles: true, cancelable: true, view: window, clientX, clientY };
+    el.dispatchEvent(new MouseEvent('click', opts));
+  }
+
+  function targets(cfg) {
+    const rect = area.getBoundingClientRect();
+    if (!points.length) {
+      const t = target.getBoundingClientRect();
+      return [{ x: t.left + t.width / 2, y: t.top + t.height / 2 }];
+    }
+    const abs = points.map((p) => ({ x: rect.left + p.x * rect.width, y: rect.top + p.y * rect.height }));
+    if (cfg.order === 'all') return abs;
+    const p = abs[cycleIndex % abs.length];
+    cycleIndex = (cycleIndex + 1) % abs.length;
+    return [p];
+  }
+
+  function tick() {
+    if (!running) return;
+    const cfg = config();
+    outer: for (let b = 0; b < cfg.burst; b++) {
+      for (const p of targets(cfg)) {
+        clickAt(p.x, p.y);
+        total++;
+        runClicks++;
+        recent.push(performance.now());
+        if (cfg.limit && runClicks >= cfg.limit) break outer;
+      }
+    }
+    if (els.vibrate.checked && navigator.vibrate) navigator.vibrate(10);
+    renderStats();
+    if (cfg.limit && runClicks >= cfg.limit) return stop();
+    if (cfg.duration && performance.now() - startedAt >= cfg.duration * 1000) return stop();
+    const delay = cfg.interval + (cfg.jitter ? Math.round((Math.random() * 2 - 1) * cfg.jitter) : 0);
+    timer = setTimeout(tick, Math.max(10, delay));
+  }
+
+  function renderStats() {
+    const now = performance.now();
+    while (recent.length && now - recent[0] > 1000) recent.shift();
+    els.total.textContent = total.toLocaleString('de-DE');
+    els.cps.textContent = String(recent.length);
+    const secs = running ? (now - startedAt) / 1000 : lastRunSecs;
+    els.time.textContent = secs.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' s';
+    els.targetCount.textContent = hits.toLocaleString('de-DE');
+  }
+
+  let lastRunSecs = 0;
+  let statsTimer = null;
+
+  function start() {
+    if (running) return;
+    if (placing) setPlacing(false);
+    running = true;
+    runClicks = 0;
+    cycleIndex = 0;
+    startedAt = performance.now();
+    els.status.textContent = 'Läuft';
+    els.status.classList.add('on');
+    els.startBtn.textContent = 'Stopp';
+    els.startBtn.classList.add('running');
+    statsTimer = setInterval(renderStats, 100);
+    tick();
+  }
+
+  function stop() {
+    if (!running) return;
+    running = false;
+    clearTimeout(timer);
+    clearInterval(statsTimer);
+    timer = statsTimer = null;
+    lastRunSecs = (performance.now() - startedAt) / 1000;
+    els.status.textContent = 'Gestoppt';
+    els.status.classList.remove('on');
+    els.startBtn.textContent = 'Start';
+    els.startBtn.classList.remove('running');
+    recent = [];
+    renderStats();
+  }
+
+  target.addEventListener('click', (e) => {
+    if (placing) return;
+    hits++;
+    target.classList.add('hit');
+    setTimeout(() => target.classList.remove('hit'), 60);
+    renderStats();
+  });
+
+  // Im Setz-Modus fängt die Fläche jeden Tipp ab, bevor er den Knopf erreicht.
+  area.addEventListener('pointerdown', (e) => {
+    if (!placing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = area.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    points.push({ x: +x.toFixed(4), y: +y.toFixed(4) });
+    save();
+    renderMarkers();
+  }, true);
+  area.addEventListener('click', (e) => { if (placing) { e.preventDefault(); e.stopPropagation(); } }, true);
+
+  els.placeBtn.addEventListener('click', () => setPlacing(!placing));
+  els.clearBtn.addEventListener('click', () => { points = []; cycleIndex = 0; save(); renderMarkers(); });
+  els.resetBtn.addEventListener('click', () => { total = 0; hits = 0; lastRunSecs = 0; recent = []; renderStats(); });
+  els.startBtn.addEventListener('click', () => (running ? stop() : start()));
+  for (const key of SETTINGS) els[key].addEventListener('change', save);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLButtonElement)) {
+      e.preventDefault();
+      running ? stop() : start();
+    }
+  });
+
+  // Symbol und Manifest werden zur Laufzeit erzeugt, damit die Datei ohne weitere Dateien funktioniert.
+  function makeIcon(size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d');
+    g.fillStyle = '#0f1115';
+    g.fillRect(0, 0, size, size);
+    const grad = g.createRadialGradient(size * .42, size * .38, size * .05, size / 2, size / 2, size * .36);
+    grad.addColorStop(0, '#6fa2ff');
+    grad.addColorStop(1, '#3a6fd8');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(size / 2, size / 2, size * .34, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    const s = size / 100;
+    g.moveTo(42 * s, 30 * s);
+    g.lineTo(42 * s, 70 * s);
+    g.lineTo(52 * s, 60 * s);
+    g.lineTo(59 * s, 74 * s);
+    g.lineTo(65 * s, 71 * s);
+    g.lineTo(58 * s, 57 * s);
+    g.lineTo(71 * s, 57 * s);
+    g.closePath();
+    g.fill();
+    return c.toDataURL('image/png');
+  }
+
+  try {
+    const icon180 = makeIcon(180);
+    const icon512 = makeIcon(512);
+    $('touchIcon').href = icon180;
+    $('favIcon').href = makeIcon(64);
+    const manifest = {
+      name: 'Autoclicker',
+      short_name: 'Autoclicker',
+      start_url: location.href,
+      display: 'standalone',
+      background_color: '#0f1115',
+      theme_color: '#0f1115',
+      icons: [
+        { src: icon180, sizes: '180x180', type: 'image/png' },
+        { src: icon512, sizes: '512x512', type: 'image/png' },
+      ],
+    };
+    $('manifestLink').href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifest));
+  } catch (e) { /* Symbol optional */ }
+
+  load();
+  renderMarkers();
+  renderStats();
+
+  window.autoclicker = { start, stop, get running() { return running; }, get total() { return total; }, get hits() { return hits; }, get points() { return points.slice(); } };
+})();
+</script>
+</body>
+</html>
