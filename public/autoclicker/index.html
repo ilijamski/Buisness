@@ -265,7 +265,7 @@
       </div>
 
       <div id="pfWin" class="platform">
-        <a class="dl" href="autoclicker-windows.zip" download data-save>⬇ Für Windows herunterladen</a>
+        <a class="dl" href="autoclicker-windows.zip" download data-save="autoclicker.ahk">⬇ Für Windows herunterladen</a>
         <ol>
           <li>Einmalig <a href="https://www.autohotkey.com" target="_blank" rel="noopener">AutoHotkey v2</a> installieren.</li>
           <li>Die ZIP-Datei entpacken und <code>autoclicker.ahk</code> doppelklicken – unten rechts in der Taskleiste (ggf. unter „^“) erscheint das grüne „H“.</li>
@@ -284,7 +284,7 @@
       </div>
 
       <div id="pfMac" class="platform" hidden>
-        <a class="dl" href="autoclicker-python.zip" download data-save>⬇ Für Mac / Linux herunterladen</a>
+        <a class="dl" href="autoclicker-python.zip" download data-save="autoclicker.py">⬇ Für Mac / Linux herunterladen</a>
         <ol>
           <li>ZIP-Datei entpacken. Python 3 installieren (Mac: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>).</li>
           <li>Im Terminal einmalig: <code>pip3 install pynput</code></li>
@@ -710,14 +710,45 @@
   if (window.claude && typeof window.claude.use === 'function') {
     window.claude.use('downloads').then((api) => { downloadsApi = api; }).catch(() => {});
   }
+  // Minimales ZIP (ohne Kompression) mit einer Datei – der Viewer nimmt nur bestimmte Endungen an.
+  function crc32(bytes) {
+    let c, crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      c = (crc ^ bytes[i]) & 0xff;
+      for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1;
+      crc = (crc >>> 8) ^ c;
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function zipOne(name, bytes) {
+    const nameBytes = new TextEncoder().encode(name);
+    const crc = crc32(bytes);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true);
+    local.setUint32(14, crc, true); local.setUint32(18, bytes.length, true); local.setUint32(22, bytes.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true); central.setUint16(4, 20, true); central.setUint16(6, 20, true);
+    central.setUint16(8, 0x0800, true); central.setUint32(16, crc, true); central.setUint32(20, bytes.length, true);
+    central.setUint32(24, bytes.length, true); central.setUint16(28, nameBytes.length, true);
+    const centralOffset = 30 + nameBytes.length + bytes.length;
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true);
+    end.setUint32(12, 46 + nameBytes.length, true); end.setUint32(16, centralOffset, true);
+    return new Blob([local, nameBytes, bytes, central, nameBytes, end], { type: 'application/zip' });
+  }
+
   document.querySelectorAll('a[data-save]').forEach((a) => {
     a.addEventListener('click', async (e) => {
       if (!downloadsApi) return;
       e.preventDefault();
       try {
-        const res = await fetch(a.getAttribute('href'));
+        const source = a.dataset.save;
+        const res = await fetch(source);
         if (!res.ok) throw new Error(String(res.status));
-        await downloadsApi.save({ filename: a.getAttribute('href'), data: await res.blob() });
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        await downloadsApi.save({ filename: a.getAttribute('href'), data: zipOne(source, bytes) });
       } catch (err) {
         if (err && err.code === 'declined') return;
         window.open(a.href, '_blank', 'noopener');
