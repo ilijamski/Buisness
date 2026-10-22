@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Autoclicker</title>
+<meta name="description" content="Autoclicker für PC und Handy – F6 zum Starten, auch in Spielen wie Minecraft.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Autoclicker">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  /* Immer dunkel: passt zur weißen Statusleiste als Home-Bildschirm-App. */
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #20242d;
+    --line: #2c313c;
+    --text: #e9ecf1;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --accent-2: #3a6fd8;
+    --accent-soft: rgba(79, 140, 255, .18);
+    --good: #2fbf71;
+    --good-soft: rgba(47, 191, 113, .18);
+    --bad: #ef5350;
+    --marker: #ffb020;
+    --marker-soft: rgba(255, 176, 32, .25);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  button, input, select, a { touch-action: manipulation; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 24px; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 0 10px;
+  }
+  h1 { font-size: 21px; margin: 0; }
+  h2 { font-size: 17px; margin: 0 0 6px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; }
+  p { margin: 0 0 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .status {
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .status.on { background: var(--good-soft); color: var(--good); }
+
+  .tabs, .seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .tabs button, .seg button {
+    font: 600 14px system-ui, sans-serif;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    padding: 9px 6px;
+    cursor: pointer;
+  }
+  .tabs button[aria-selected="true"], .seg button[aria-selected="true"] { background: var(--panel-2); color: var(--text); }
+  [hidden] { display: none !important; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; margin: 8px 0; }
+  kbd {
+    display: inline-block;
+    min-width: 38px;
+    text-align: center;
+    font: 700 13px ui-monospace, Menlo, Consolas, monospace;
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-bottom-width: 3px;
+  }
+  ol { margin: 6px 0 8px; padding-left: 22px; }
+  li { margin: 3px 0; }
+  code {
+    font: 13px ui-monospace, Menlo, Consolas, monospace;
+    background: var(--panel-2);
+    padding: 2px 6px;
+    border-radius: 6px;
+    word-break: break-all;
+  }
+  a { color: var(--accent); }
+  .dl {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 600 15px system-ui, sans-serif;
+    color: #fff;
+    background: var(--accent-2);
+    border-radius: 12px;
+    padding: 11px 14px;
+    text-decoration: none;
+    margin: 4px 8px 4px 0;
+  }
+  .note {
+    border-left: 3px solid var(--marker);
+    background: var(--marker-soft);
+    padding: 8px 10px;
+    border-radius: 0 10px 10px 0;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+
+  /* Test-Klicker */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .tester { display: grid; gap: 12px; }
+  #area {
+    position: relative;
+    height: 300px;
+    background: var(--panel);
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #area.placing { border-color: var(--marker); touch-action: none; }
+  #hint { position: absolute; inset: auto 0 10px 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; padding: 0 12px; }
+  #target {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 0;
+    background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-2));
+    color: #fff;
+    font: 600 16px system-ui, sans-serif;
+    box-shadow: 0 8px 24px var(--accent-soft);
+    cursor: pointer;
+    transition: transform .06s;
+  }
+  #target.hit { transform: translate(-50%, -50%) scale(.94); }
+  #target small { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
+  #targetCount { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+  .marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    border: 2px solid var(--marker);
+    color: var(--marker);
+    font: 700 11px/26px system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .ripple {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--marker);
+    pointer-events: none;
+    animation: ripple .4s ease-out forwards;
+    z-index: 2;
+  }
+  @keyframes ripple { from { transform: scale(1); opacity: .8; } to { transform: scale(5); opacity: 0; } }
+  .settings { display: grid; gap: 10px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input[type="number"], select {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  button.btn {
+    font: 600 14px system-ui, sans-serif;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 6px;
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.btn:active { transform: scale(.98); }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  button.btn.active { border-color: var(--marker); color: var(--marker); }
+  #startBtn { grid-column: 1 / -1; background: var(--good); border-color: var(--good); color: #fff; font-size: 17px; }
+  #startBtn.running { background: var(--bad); border-color: var(--bad); }
+
+  @media (min-width: 760px) {
+    .tester { grid-template-columns: 1fr 360px; }
+    #area { height: 100%; min-height: 380px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Autoclicker</h1>
+    <span class="status" id="status">Gestoppt</span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabApps" aria-selected="true" data-panel="panelApps">Andere Apps</button>
+    <button type="button" role="tab" id="tabTest" aria-selected="false" data-panel="panelTest">Hier testen</button>
+  </nav>
+
+  <!-- Andere Apps (Minecraft usw.) -->
+  <section id="panelApps" role="tabpanel">
+    <div class="card">
+      <h2>Klicken in Spielen und anderen Apps</h2>
+      <p class="muted">Eine Webseite darf aus Sicherheitsgründen nicht in andere Apps klicken. Dafür gibt es hier kleine Programme bzw. die eingebaute Funktion deines Handys. Wähle dein Gerät:</p>
+      <div class="seg" role="tablist" id="platforms">
+        <button type="button" role="tab" data-panel="pfWin">Windows</button>
+        <button type="button" role="tab" data-panel="pfMac">Mac / Linux</button>
+        <button type="button" role="tab" data-panel="pfIos">iPhone</button>
+        <button type="button" role="tab" data-panel="pfAndroid">Android</button>
+      </div>
+
+      <div id="pfWin" class="platform">
+        <a class="dl" href="autoclicker.ahk" download="autoclicker.ahk">⬇ autoclicker.ahk herunterladen</a>
+        <ol>
+          <li>Einmalig <a href="https://www.autohotkey.com" target="_blank" rel="noopener">AutoHotkey v2</a> installieren.</li>
+          <li><code>autoclicker.ahk</code> doppelklicken – unten rechts erscheint das grüne „H“.</li>
+          <li>Minecraft öffnen und <kbd>F6</kbd> drücken: Es wird geklickt. Nochmal <kbd>F6</kbd> stoppt.</li>
+        </ol>
+        <h3>Tasten</h3>
+        <div class="keys">
+          <kbd>F6</kbd><span>Klicken an / aus</span>
+          <kbd>F7</kbd><span>Links- / Rechtsklick wechseln</span>
+          <kbd>F8</kbd><span>langsamer</span>
+          <kbd>F9</kbd><span>schneller (bis 50 Klicks/s, Start: 10)</span>
+          <kbd>F10</kbd><span>Autoclicker beenden</span>
+        </div>
+        <h3>Immer sofort bereit</h3>
+        <p>Mit <kbd>Win</kbd>+<kbd>R</kbd> → <code>shell:startup</code> öffnen und eine Verknüpfung zur <code>autoclicker.ahk</code> hineinlegen. Dann startet er mit Windows, und <kbd>F6</kbd> funktioniert jederzeit.</p>
+      </div>
+
+      <div id="pfMac" class="platform" hidden>
+        <a class="dl" href="autoclicker.py" download="autoclicker.py">⬇ autoclicker.py herunterladen</a>
+        <ol>
+          <li>Python 3 installieren (Mac: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>).</li>
+          <li>Im Terminal einmalig: <code>pip3 install pynput</code></li>
+          <li>Starten: <code>python3 autoclicker.py</code> (oder z. B. <code>--cps 15 --button right</code>).</li>
+          <li>Zum Spiel wechseln und <kbd>F6</kbd> drücken. Auf dem Mac ggf. <kbd>fn</kbd>+<kbd>F6</kbd>.</li>
+        </ol>
+        <div class="keys">
+          <kbd>F6</kbd><span>Klicken an / aus</span>
+          <kbd>F7</kbd><span>Links- / Rechtsklick wechseln</span>
+          <kbd>F8</kbd><span>langsamer</span>
+          <kbd>F9</kbd><span>schneller</span>
+          <kbd>F10</kbd><span>beenden</span>
+        </div>
+        <p class="note">Mac: Unter Systemeinstellungen → Datenschutz &amp; Sicherheit dem Terminal „Bedienungshilfen“ und „Eingabeüberwachung“ erlauben, sonst kommen keine Klicks an. Das Python-Programm läuft auch unter Windows.</p>
+      </div>
+
+      <div id="pfIos" class="platform" hidden>
+        <p>Das iPhone hat einen eingebauten Autoclicker: die <b>Schaltersteuerung</b> mit einem „Rezept“. Einmal einrichten, danach per dreifachem Drücken der Seitentaste an und aus.</p>
+        <h3>1. Schalter anlegen</h3>
+        <ol>
+          <li>Einstellungen → Bedienungshilfen → Schaltersteuerung → Schalter → <b>Neuen Schalter hinzufügen</b>.</li>
+          <li><b>Bildschirm</b> → <b>Vollbild</b> → Aktion: <b>Tippen</b>.</li>
+        </ol>
+        <h3>2. Rezept mit Klick-Geste</h3>
+        <ol>
+          <li>Schaltersteuerung → Rezepte → <b>Neues Rezept erstellen</b>, Name: „Autoclicker“.</li>
+          <li><b>Schalter zuweisen</b> → Vollbild → <b>Eigene Geste</b>.</li>
+          <li>Jetzt schnell <b>viele Male</b> auf die Stelle tippen, die geklickt werden soll (z. B. Mitte des Bildschirms) → <b>Sichern</b>.</li>
+          <li>Zurück zu Rezepte → <b>Rezept starten</b> → „Autoclicker“ wählen.</li>
+        </ol>
+        <h3>3. Schnell an/aus</h3>
+        <ol>
+          <li>Bedienungshilfen → <b>Kurzbefehl</b> → <b>Schaltersteuerung</b> ankreuzen.</li>
+          <li>In Minecraft: <b>Seitentaste 3× drücken</b> → Schaltersteuerung ist an. Einmal auf den Bildschirm tippen spielt die Klick-Geste ab.</li>
+          <li>Zum Beenden wieder Seitentaste 3× drücken.</li>
+        </ol>
+        <p class="note">Solange die Schaltersteuerung an ist, löst jeder Tipp die Geste aus. Normales Bedienen geht erst nach dem Ausschalten wieder.</p>
+      </div>
+
+      <div id="pfAndroid" class="platform" hidden>
+        <p>Android braucht eine Autoclicker-App mit Bedienungshilfen-Recht. Empfehlung: <b>Klick'r</b> (kostenlos, Open Source, ohne Werbung).</p>
+        <a class="dl" href="https://play.google.com/store/search?q=Klick%27r%20auto%20clicker&amp;c=apps" target="_blank" rel="noopener">Klick'r im Play Store suchen</a>
+        <ol>
+          <li>App installieren und öffnen, das Recht unter <b>Bedienungshilfen</b> sowie „Über anderen Apps einblenden“ erlauben.</li>
+          <li>Neues Szenario anlegen, einen Klickpunkt setzen und das Intervall (z. B. 100 ms) einstellen.</li>
+          <li>Minecraft öffnen: Über die schwebende Leiste mit ▶ starten und ■ stoppen.</li>
+        </ol>
+      </div>
+
+      <p class="note">Hinweis: Auf vielen Minecraft-Servern sind Autoclicker verboten und können zum Bann führen. In der Einzelspieler-Welt ist das kein Problem.</p>
+    </div>
+  </section>
+
+  <!-- Test-Klicker innerhalb dieser Seite -->
+  <section id="panelTest" role="tabpanel" hidden>
+    <div class="stats" aria-label="Statistik">
+      <div class="stat"><b id="totalClicks">0</b><span>Klicks gesamt</span></div>
+      <div class="stat"><b id="cpsNow">0</b><span>Klicks / Sek.</span></div>
+      <div class="stat"><b id="runTime">0,0 s</b><span>Laufzeit</span></div>
+    </div>
+    <div class="tester">
+      <div id="area" aria-label="Klickfläche">
+        <button id="target" type="button"><span id="targetCount">0</span><small>Treffer</small></button>
+        <div id="hint"></div>
+      </div>
+      <div class="card settings">
+        <div class="row">
+          <label>Intervall (ms)
+            <input id="interval" type="number" min="10" max="60000" step="10" value="100" inputmode="numeric">
+          </label>
+          <label>Klicks pro Takt
+            <input id="burst" type="number" min="1" max="50" step="1" value="1" inputmode="numeric">
+          </label>
+        </div>
+        <div class="row">
+          <label>Stopp nach Klicks (0 = nie)
+            <input id="limit" type="number" min="0" step="1" value="0" inputmode="numeric">
+          </label>
+          <label>Stopp nach Sek. (0 = nie)
+            <input id="duration" type="number" min="0" step="1" value="0" inputmode="numeric">
+          </label>
+        </div>
+        <div class="row">
+          <label>Zufall ± (ms)
+            <input id="jitter" type="number" min="0" max="5000" step="10" value="0" inputmode="numeric">
+          </label>
+          <label>Punkte klicken
+            <select id="order">
+              <option value="all">Alle zugleich</option>
+              <option value="cycle">Nacheinander</option>
+            </select>
+          </label>
+        </div>
+        <label class="check" id="vibrateRow"><input id="vibrate" type="checkbox"> Vibration beim Klicken</label>
+        <div class="buttons">
+          <button class="btn" id="placeBtn" type="button">Punkt setzen</button>
+          <button class="btn" id="clearBtn" type="button">Punkte löschen</button>
+          <button class="btn" id="resetBtn" type="button">Zurücksetzen</button>
+          <button class="btn" id="startBtn" type="button">Start (Leertaste)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const area = $('area');
+  const target = $('target');
+  const els = {
+    status: $('status'), total: $('totalClicks'), cps: $('cpsNow'), time: $('runTime'),
+    targetCount: $('targetCount'), hint: $('hint'),
+    interval: $('interval'), burst: $('burst'), limit: $('limit'), duration: $('duration'),
+    jitter: $('jitter'), order: $('order'), vibrate: $('vibrate'),
+    placeBtn: $('placeBtn'), clearBtn: $('clearBtn'), resetBtn: $('resetBtn'), startBtn: $('startBtn'),
+  };
+
+  const STORE_KEY = 'autoclicker.v1';
+  const SETTINGS = ['interval', 'burst', 'limit', 'duration', 'jitter', 'order', 'vibrate'];
+  const canVibrate = 'vibrate' in navigator;
+
+  // Punkte werden relativ zur Klickfläche (0..1) gespeichert, damit sie Drehen und Größenänderungen überstehen.
+  let points = [];
+  let placing = false;
+  let running = false;
+  let timer = null;
+  let stopTimer = null;
+  let statsTimer = null;
+  let cycleIndex = 0;
+  let total = 0;
+  let runClicks = 0;
+  let hits = 0;
+  let startedAt = 0;
+  let lastRunSecs = 0;
+  let lastVibrate = 0;
+  let ripplesThisTick = 0;
+  // Klicks je 100-ms-Fenster für die Anzeige „Klicks / Sek.“.
+  let buckets = [];
+
+  function readStore() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+
+  function writeStore(patch) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign(readStore(), patch))); } catch (e) { /* Speicher nicht verfügbar */ }
+  }
+
+  const inRange = (v) => typeof v === 'number' && v >= 0 && v <= 1;
+
+  function load() {
+    const data = readStore();
+    for (const key of SETTINGS) {
+      if (data[key] === undefined) continue;
+      if (key === 'vibrate') els.vibrate.checked = !!data.vibrate;
+      else els[key].value = data[key];
+    }
+    if (Array.isArray(data.points)) points = data.points.filter((p) => p && inRange(p.x) && inRange(p.y));
+    return data;
+  }
+
+  function saveSettings() {
+    const data = { points };
+    for (const key of SETTINGS) data[key] = key === 'vibrate' ? els.vibrate.checked : els[key].value;
+    writeStore(data);
+  }
+
+  function num(el, min, max, fallback) {
+    const v = Number(el.value);
+    if (el.value.trim() === '' || !isFinite(v)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(v)));
+  }
+
+  function config() {
+    return {
+      interval: num(els.interval, 10, 60000, 100),
+      burst: num(els.burst, 1, 50, 1),
+      limit: num(els.limit, 0, 1e9, 0),
+      duration: num(els.duration, 0, 86400, 0),
+      jitter: num(els.jitter, 0, 5000, 0),
+      order: els.order.value === 'cycle' ? 'cycle' : 'all',
+    };
+  }
+
+  // ---------- Tabs ----------
+  function selectTab(group, btn) {
+    group.querySelectorAll('[role="tab"]').forEach((b) => {
+      const on = b === btn;
+      b.setAttribute('aria-selected', String(on));
+      $(b.dataset.panel).hidden = !on;
+    });
+  }
+
+  const mainTabs = document.querySelector('.tabs');
+  const platforms = $('platforms');
+  mainTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('[role="tab"]');
+    if (!btn) return;
+    if (btn.id !== 'tabTest') stop();
+    selectTab(mainTabs, btn);
+    writeStore({ tab: btn.id });
+  });
+  platforms.addEventListener('click', (e) => {
+    const btn = e.target.closest('[role="tab"]');
+    if (!btn) return;
+    selectTab(platforms, btn);
+    writeStore({ platform: btn.dataset.panel });
+  });
+
+  function guessPlatform() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'pfIos';
+    if (/Android/.test(ua)) return 'pfAndroid';
+    if (/Mac|Linux|CrOS/.test(ua)) return 'pfMac';
+    return 'pfWin';
+  }
+
+  // ---------- Test-Klicker ----------
+  function renderMarkers() {
+    area.querySelectorAll('.marker').forEach((m) => m.remove());
+    points.forEach((p, i) => {
+      const m = document.createElement('div');
+      m.className = 'marker';
+      m.style.left = (p.x * 100) + '%';
+      m.style.top = (p.y * 100) + '%';
+      m.textContent = String(i + 1);
+      area.appendChild(m);
+    });
+    els.hint.textContent = placing
+      ? 'Tippe in die Fläche, um Klickpunkte zu setzen. Danach „Fertig“.'
+      : points.length
+        ? points.length + ' Klickpunkt' + (points.length === 1 ? '' : 'e') + ' gesetzt.'
+        : 'Ohne Klickpunkte klickt der Autoclicker auf den blauen Knopf.';
+  }
+
+  function setPlacing(on) {
+    placing = on;
+    area.classList.toggle('placing', on);
+    els.placeBtn.classList.toggle('active', on);
+    els.placeBtn.textContent = on ? 'Fertig' : 'Punkt setzen';
+    renderMarkers();
+  }
+
+  function ripple(x, y) {
+    if (document.hidden || ripplesThisTick >= 8) return;
+    ripplesThisTick++;
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    area.appendChild(r);
+    setTimeout(() => r.remove(), 450);
+  }
+
+  // Klickt das Element unter einem Punkt der Klickfläche. Liegt der Punkt außerhalb des
+  // sichtbaren Bildschirms, findet elementFromPoint nichts – dann zählt der Klick nicht.
+  function clickAt(clientX, clientY) {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el || !area.contains(el)) return false;
+    const rect = area.getBoundingClientRect();
+    ripple(clientX - rect.left, clientY - rect.top);
+    if (el !== area) {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX, clientY }));
+    }
+    return true;
+  }
+
+  function targets(cfg) {
+    if (!points.length) {
+      const t = target.getBoundingClientRect();
+      return [{ x: t.left + t.width / 2, y: t.top + t.height / 2 }];
+    }
+    const rect = area.getBoundingClientRect();
+    const abs = points.map((p) => ({ x: rect.left + p.x * rect.width, y: rect.top + p.y * rect.height }));
+    if (cfg.order === 'all') return abs;
+    const p = abs[cycleIndex % abs.length];
+    cycleIndex = (cycleIndex + 1) % abs.length;
+    return [p];
+  }
+
+  function countClick() {
+    total++;
+    runClicks++;
+    const slot = Math.floor(performance.now() / 100);
+    const last = buckets[buckets.length - 1];
+    if (last && last.slot === slot) last.n++;
+    else buckets.push({ slot, n: 1 });
+  }
+
+  function tick() {
+    timer = null;
+    if (!running) return;
+    const cfg = config();
+    if (cfg.duration && performance.now() - startedAt >= cfg.duration * 1000) return stop();
+    ripplesThisTick = 0;
+    let clicked = false;
+    outer: for (let b = 0; b < cfg.burst; b++) {
+      for (const p of targets(cfg)) {
+        if (!clickAt(p.x, p.y)) continue;
+        clicked = true;
+        countClick();
+        if (cfg.limit && runClicks >= cfg.limit) break outer;
+      }
+    }
+    if (clicked && els.vibrate.checked && canVibrate) {
+      const now = performance.now();
+      if (now - lastVibrate >= 150) { navigator.vibrate(10); lastVibrate = now; }
+    }
+    renderStats();
+    if (cfg.limit && runClicks >= cfg.limit) return stop();
+    const delay = cfg.interval + (cfg.jitter ? Math.round((Math.random() * 2 - 1) * cfg.jitter) : 0);
+    timer = setTimeout(tick, Math.max(10, delay));
+  }
+
+  function renderStats() {
+    const now = performance.now();
+    const slotNow = Math.floor(now / 100);
+    while (buckets.length && slotNow - buckets[0].slot >= 10) buckets.shift();
+    els.total.textContent = total.toLocaleString('de-DE');
+    els.cps.textContent = String(buckets.reduce((s, b) => s + b.n, 0));
+    const secs = running ? (now - startedAt) / 1000 : lastRunSecs;
+    els.time.textContent = secs.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' s';
+    els.targetCount.textContent = hits.toLocaleString('de-DE');
+  }
+
+  function start() {
+    if (running) return;
+    if (placing) setPlacing(false);
+    const cfg = config();
+    running = true;
+    runClicks = 0;
+    cycleIndex = 0;
+    startedAt = performance.now();
+    els.status.textContent = 'Läuft';
+    els.status.classList.add('on');
+    els.startBtn.textContent = 'Stopp (Leertaste)';
+    els.startBtn.classList.add('running');
+    els.placeBtn.disabled = true;
+    statsTimer = setInterval(renderStats, 100);
+    if (cfg.duration) stopTimer = setTimeout(stop, cfg.duration * 1000);
+    tick();
+  }
+
+  function stop() {
+    if (!running) return;
+    running = false;
+    clearTimeout(timer);
+    clearTimeout(stopTimer);
+    clearInterval(statsTimer);
+    timer = stopTimer = statsTimer = null;
+    lastRunSecs = (performance.now() - startedAt) / 1000;
+    els.status.textContent = 'Gestoppt';
+    els.status.classList.remove('on');
+    els.startBtn.textContent = 'Start (Leertaste)';
+    els.startBtn.classList.remove('running');
+    els.placeBtn.disabled = false;
+    buckets = [];
+    renderStats();
+  }
+
+  target.addEventListener('click', () => {
+    if (placing) return;
+    hits++;
+    target.classList.add('hit');
+    setTimeout(() => target.classList.remove('hit'), 60);
+    renderStats();
+  });
+
+  // Im Setz-Modus fängt die Fläche jeden Tipp ab, bevor er den Knopf erreicht.
+  area.addEventListener('pointerdown', (e) => {
+    if (!placing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.isPrimary || e.button !== 0) return;
+    const rect = area.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    if (!inRange(x) || !inRange(y)) return;
+    points.push({ x: +x.toFixed(4), y: +y.toFixed(4) });
+    saveSettings();
+    renderMarkers();
+  }, true);
+  area.addEventListener('click', (e) => {
+    if (placing && e.isTrusted) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
+  els.placeBtn.addEventListener('click', () => setPlacing(!placing));
+  els.clearBtn.addEventListener('click', () => { points = []; cycleIndex = 0; saveSettings(); renderMarkers(); });
+  els.resetBtn.addEventListener('click', () => {
+    total = 0; hits = 0; lastRunSecs = 0; buckets = [];
+    if (running) { runClicks = 0; startedAt = performance.now(); }
+    renderStats();
+  });
+  els.startBtn.addEventListener('click', () => (running ? stop() : start()));
+  for (const key of SETTINGS) {
+    els[key].addEventListener('change', saveSettings);
+    els[key].addEventListener('input', saveSettings);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat || $('panelTest').hidden) return;
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return;
+    e.preventDefault();
+    running ? stop() : start();
+  });
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+
+  // ---------- Start ----------
+  if (!canVibrate) $('vibrateRow').hidden = true;
+  const saved = load();
+  selectTab(mainTabs, $(saved.tab === 'tabTest' ? 'tabTest' : 'tabApps'));
+  const pf = platforms.querySelector('[data-panel="' + (saved.platform || guessPlatform()) + '"]') || platforms.querySelector('[role="tab"]');
+  selectTab(platforms, pf);
+  renderMarkers();
+  renderStats();
+
+  window.autoclicker = { start, stop, get running() { return running; }, get total() { return total; }, get hits() { return hits; }, get points() { return points.slice(); } };
+})();
+</script>
+</body>
+</html>
