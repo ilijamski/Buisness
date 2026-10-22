@@ -265,10 +265,10 @@
       </div>
 
       <div id="pfWin" class="platform">
-        <a class="dl" href="autoclicker.ahk" download="autoclicker.ahk">⬇ autoclicker.ahk herunterladen</a>
+        <a class="dl" href="autoclicker-windows.zip" download data-save>⬇ Für Windows herunterladen</a>
         <ol>
           <li>Einmalig <a href="https://www.autohotkey.com" target="_blank" rel="noopener">AutoHotkey v2</a> installieren.</li>
-          <li><code>autoclicker.ahk</code> doppelklicken – unten rechts in der Taskleiste (ggf. unter „^“) erscheint das grüne „H“.</li>
+          <li>Die ZIP-Datei entpacken und <code>autoclicker.ahk</code> doppelklicken – unten rechts in der Taskleiste (ggf. unter „^“) erscheint das grüne „H“.</li>
           <li>Minecraft öffnen und <kbd>F6</kbd> drücken: hoher Ton, es wird geklickt. Nochmal <kbd>F6</kbd>: tiefer Ton, Stopp.</li>
         </ol>
         <h3>Tasten</h3>
@@ -284,9 +284,9 @@
       </div>
 
       <div id="pfMac" class="platform" hidden>
-        <a class="dl" href="autoclicker.py" download="autoclicker.py">⬇ autoclicker.py herunterladen</a>
+        <a class="dl" href="autoclicker-python.zip" download data-save>⬇ Für Mac / Linux herunterladen</a>
         <ol>
-          <li>Python 3 installieren (Mac: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>).</li>
+          <li>ZIP-Datei entpacken. Python 3 installieren (Mac: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>).</li>
           <li>Im Terminal einmalig: <code>pip3 install pynput</code></li>
           <li>Starten: <code>cd ~/Downloads</code> und dann <code>python3 autoclicker.py</code> (oder z. B. <code>--cps 15 --button right</code>).</li>
           <li>Zum Spiel wechseln und <kbd>F6</kbd> drücken. Auf dem Mac ggf. <kbd>fn</kbd>+<kbd>F6</kbd>.</li>
@@ -702,6 +702,28 @@
   });
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+
+  // ---------- Downloads ----------
+  // Im claude.ai-Viewer gehen normale Download-Links nicht; dort läuft das Speichern über
+  // die downloads-Funktion des Viewers. Überall sonst bleibt es ein normaler Link.
+  let downloadsApi = null;
+  if (window.claude && typeof window.claude.use === 'function') {
+    window.claude.use('downloads').then((api) => { downloadsApi = api; }).catch(() => {});
+  }
+  document.querySelectorAll('a[data-save]').forEach((a) => {
+    a.addEventListener('click', async (e) => {
+      if (!downloadsApi) return;
+      e.preventDefault();
+      try {
+        const res = await fetch(a.getAttribute('href'));
+        if (!res.ok) throw new Error(String(res.status));
+        await downloadsApi.save({ filename: a.getAttribute('href'), data: await res.blob() });
+      } catch (err) {
+        if (err && err.code === 'declined') return;
+        window.open(a.href, '_blank', 'noopener');
+      }
+    });
+  });
 
   // ---------- Start ----------
   if (!canVibrate) $('vibrateRow').hidden = true;
