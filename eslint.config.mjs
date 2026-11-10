@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Deno runtime, not part of the Next.js app.
     "supabase/functions/**",
+    // Eigenständige App mit eigener Konfiguration.
+    "lifeos/**",
   ]),
 ]);
 

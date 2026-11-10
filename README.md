@@ -1,5 +1,8 @@
 # Fuhrpark-Manager
 
+> Im Ordner [`lifeos/`](./lifeos) liegt zusätzlich **LifeOS**, eine eigenständige App
+> (persönliches Betriebssystem) mit eigener Anleitung in [`lifeos/README.md`](./lifeos/README.md).
+
 Next.js-App zur Verwaltung eines Fuhrparks mit Supabase als Backend
 (Auth, Postgres, Storage, Edge Functions). Mehrere Firmen können sich
 unabhängig voneinander registrieren; jede Firma sieht nur ihre eigenen Daten.
