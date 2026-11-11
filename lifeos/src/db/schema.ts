@@ -86,6 +86,8 @@ export const events = pgTable(
     /** none | daily | weekly | monthly | yearly */
     repeat: text("repeat").notNull().default("none"),
     repeatUntil: date("repeat_until", { mode: "string" }),
+    /** einzelne ausgenommene Termine einer Serie, ISO-Daten durch Komma getrennt */
+    skipDates: text("skip_dates").notNull().default(""),
     startTime: text("start_time"),
     endTime: text("end_time"),
     color: integer("color").notNull().default(1),
@@ -141,6 +143,17 @@ export const habitLogs = pgTable(
   ],
 );
 
+export const noteFolders = pgTable(
+  "note_folders",
+  {
+    id: id(),
+    userId: owner(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("note_folders_user_idx").on(t.userId)],
+);
+
 export const notes = pgTable(
   "notes",
   {
@@ -149,6 +162,7 @@ export const notes = pgTable(
     title: text("title").notNull().default(""),
     content: text("content").notNull().default(""),
     pinned: boolean("pinned").notNull().default(false),
+    folderId: uuid("folder_id").references(() => noteFolders.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: createdAt(),
   },
@@ -192,6 +206,37 @@ export const transactions = pgTable(
     index("transactions_user_date_idx").on(t.userId, t.date),
     uniqueIndex("transactions_external").on(t.userId, t.externalId),
   ],
+);
+
+export const holdings = pgTable(
+  "holdings",
+  {
+    id: id(),
+    userId: owner(),
+    name: text("name").notNull(),
+    isin: text("isin").notNull().default(""),
+    /** stock | etf | fund | bond | crypto | other */
+    assetClass: text("asset_class").notNull().default("stock"),
+    quantity: doublePrecision("quantity").notNull().default(0),
+    /** aktueller Wert der Position */
+    valueCents: integer("value_cents").notNull(),
+    /** Kaufwert, falls bekannt */
+    costCents: integer("cost_cents"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("holdings_user_idx").on(t.userId)],
+);
+
+/** Depotwert je Tag – entsteht bei jeder Änderung am Portfolio und zeigt die Entwicklung. */
+export const portfolioSnapshots = pgTable(
+  "portfolio_snapshots",
+  {
+    id: id(),
+    userId: owner(),
+    date: date("date", { mode: "string" }).notNull(),
+    valueCents: integer("value_cents").notNull(),
+  },
+  (t) => [uniqueIndex("portfolio_snapshots_user_date").on(t.userId, t.date)],
 );
 
 export const budgets = pgTable(

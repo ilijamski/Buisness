@@ -10,7 +10,7 @@ import { useAction } from "@/components/ui/toast";
 import { EVENT_REPEATS, REPEAT_LABEL, slotVar, type EventRepeat } from "@/lib/constants";
 import { addDays, addMonths, formatLong, formatMonth, formatShort, monthOf, rangeDays, startOfWeek } from "@/lib/dates";
 import { cn } from "@/lib/format";
-import { deleteEvent, endSeriesBefore, saveEvent } from "./actions";
+import { deleteEvent, endSeriesBefore, saveEvent, skipOccurrence } from "./actions";
 import type { EventOccurrence } from "./queries";
 
 type DueTask = { id: string; title: string; dueDate: string; done: boolean };
@@ -25,11 +25,37 @@ function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: (
   const { run, pending } = useAction();
   const [repeat, setRepeat] = useState<EventRepeat>((event?.repeat as EventRepeat) ?? "none");
   const [choosing, setChoosing] = useState(false);
+  // Bei Serienterminen wird vor dem Speichern gefragt, wofür die Änderung gilt.
+  const [pendingSave, setPendingSave] = useState<FormData | null>(null);
   const isSeries = Boolean(event && event.repeat !== "none");
   const done = () => {
     setChoosing(false);
+    setPendingSave(null);
     onClose();
   };
+  const save = (data: FormData, scope: "single" | "series") =>
+    run(
+      () =>
+        saveEvent({
+          id: event?.id,
+          title: String(data.get("title")),
+          description: String(data.get("description")),
+          location: String(data.get("location")),
+          date: String(data.get("date")),
+          endDate: String(data.get("endDate")),
+          startTime: String(data.get("startTime")),
+          endTime: String(data.get("endTime")),
+          repeat,
+          repeatUntil: String(data.get("repeatUntil") ?? ""),
+          color: Number(data.get("color")),
+          occurrenceDate: isSeries ? event?.date : undefined,
+          scope,
+        }),
+      {
+        success: !event ? "Termin angelegt" : scope === "single" && isSeries ? "Nur dieser Termin geändert" : isSeries ? "Serie gespeichert" : "Termin gespeichert",
+        onSuccess: done,
+      },
+    );
   return (
     <>
       <FormModal
@@ -43,41 +69,23 @@ function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: (
             ? () => (isSeries ? setChoosing(true) : run(() => deleteEvent({ id: event.id }), { success: "Termin gelöscht", onSuccess: onClose }))
             : undefined
         }
-        onSubmit={(data) =>
-          run(
-            () =>
-              saveEvent({
-                id: event?.id,
-                title: String(data.get("title")),
-                description: String(data.get("description")),
-                location: String(data.get("location")),
-                date: String(data.get("date")),
-                endDate: String(data.get("endDate")),
-                startTime: String(data.get("startTime")),
-                endTime: String(data.get("endTime")),
-                repeat,
-                repeatUntil: String(data.get("repeatUntil") ?? ""),
-                color: Number(data.get("color")),
-              }),
-            { success: event ? "Termin gespeichert" : "Termin angelegt", onSuccess: onClose },
-          )
-        }
+        onSubmit={(data) => (isSeries ? setPendingSave(data) : save(data, "series"))}
       >
         {isSeries ? (
           <p className="flex items-start gap-2 rounded-[10px] border border-line bg-white/[0.03] px-3 py-2.5 text-[13px] text-ink-2">
             <Repeat size={15} className="mt-0.5 shrink-0 text-accent" />
-            Änderungen gelten für alle Termine dieser Serie.
+            Dieser Termin gehört zu einer Serie. Beim Speichern wählst du, ob die Änderung nur für diesen Termin oder für alle gilt.
           </p>
         ) : null}
         <Field label="Titel">
           <input name="title" className="field" required maxLength={200} autoFocus={!event} defaultValue={event?.title} placeholder="z. B. Abendessen mit Lena" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={repeat === "none" ? "Datum" : "Erster Termin"}>
-            <input name="date" type="date" className="field" required defaultValue={event?.baseDate ?? date} />
+          <Field label={!event && repeat !== "none" ? "Erster Termin" : "Datum"}>
+            <input name="date" type="date" className="field" required defaultValue={event?.date ?? date} />
           </Field>
           <Field label="Bis" hint="Nur für mehrtägige Termine.">
-            <input name="endDate" type="date" className="field" defaultValue={event?.baseEndDate ?? ""} />
+            <input name="endDate" type="date" className="field" defaultValue={event && event.endDate > event.date ? event.endDate : ""} />
           </Field>
           <Field label="Beginn" hint="Leer lassen für ganztägig.">
             <input name="startTime" type="time" className="field" defaultValue={event?.startTime ?? ""} />
@@ -120,6 +128,13 @@ function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: (
           <Button
             variant="danger"
             disabled={pending}
+            onClick={() => event && run(() => skipOccurrence({ id: event.id, date: event.date }), { success: "Termin gelöscht", onSuccess: done })}
+          >
+            Nur diesen Termin
+          </Button>
+          <Button
+            variant="danger"
+            disabled={pending}
             onClick={() => event && run(() => endSeriesBefore({ id: event.id, date: event.date }), { success: "Folgende Termine gelöscht", onSuccess: done })}
           >
             Diesen und alle folgenden
@@ -128,6 +143,24 @@ function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: (
             Die ganze Serie
           </Button>
           <Button variant="ghost" onClick={() => setChoosing(false)}>
+            Abbrechen
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={pendingSave !== null} onClose={() => setPendingSave(null)} title="Änderung übernehmen für …" size="sm">
+        <p className="text-sm text-pretty text-ink-2">
+          „{event?.title}“ wiederholt sich. Soll die Änderung nur für den Termin am {event ? formatLong(event.date) : ""} gelten oder für alle Termine
+          der Serie?
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button variant="primary" disabled={pending} onClick={() => pendingSave && save(pendingSave, "single")}>
+            Nur diesen Termin
+          </Button>
+          <Button disabled={pending} onClick={() => pendingSave && save(pendingSave, "series")}>
+            Alle Termine der Serie
+          </Button>
+          <Button variant="ghost" onClick={() => setPendingSave(null)}>
             Abbrechen
           </Button>
         </div>

@@ -124,12 +124,40 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
   logs.push({ userId, habitId: habitRows[0].id, date: today }, { userId, habitId: habitRows[3].id, date: today });
   await db.insert(schema.habitLogs).values(logs).onConflictDoNothing();
 
+  const [work, home] = await db
+    .insert(schema.noteFolders)
+    .values([
+      { userId, name: "Arbeit" },
+      { userId, name: "Privat" },
+    ])
+    .returning({ id: schema.noteFolders.id });
   await db.insert(schema.notes).values([
-    { userId, title: "Ideen für den Blog", pinned: true, content: "– Wie ich meine Woche plane\n– Werkzeuge, die ich täglich nutze\n– Rückblick auf das erste Jahr als Freelancerin\n\nErster Artikel bis Monatsende.", updatedAt: past(1) },
-    { userId, title: "Packliste Umzug", content: "Kartons (ca. 40)\nLuftpolsterfolie\nWerkzeugkoffer\nEtiketten und Marker\n\nNicht vergessen: Zählerstände fotografieren!", updatedAt: past(3) },
+    { userId, folderId: work.id, title: "Ideen für den Blog", pinned: true, content: "– Wie ich meine Woche plane\n– Werkzeuge, die ich täglich nutze\n– Rückblick auf das erste Jahr als Freelancerin\n\nErster Artikel bis Monatsende.", updatedAt: past(1) },
+    { userId, folderId: home.id, title: "Packliste Umzug", content: "Kartons (ca. 40)\nLuftpolsterfolie\nWerkzeugkoffer\nEtiketten und Marker\n\nNicht vergessen: Zählerstände fotografieren!", updatedAt: past(3) },
     { userId, title: "Buchnotizen: Deep Work", content: "Konzentration ist eine Fähigkeit, die man trainiert.\n\n1. Feste Fokusblöcke am Vormittag\n2. Benachrichtigungen aus\n3. Tagesabschluss-Ritual", updatedAt: past(6) },
-    { userId, title: "Fragen an den Steuerberater", content: "Arbeitszimmer absetzbar?\nVorauszahlungen anpassen\nBelege für den Umzug", updatedAt: past(9) },
+    { userId, folderId: work.id, title: "Fragen an den Steuerberater", content: "Arbeitszimmer absetzbar?\nVorauszahlungen anpassen\nBelege für den Umzug", updatedAt: past(9) },
   ]);
+
+  await db.insert(schema.holdings).values([
+    { userId, name: "iShares Core MSCI World UCITS ETF", isin: "IE00B4L5Y983", assetClass: "etf", quantity: 86.4, valueCents: 850_180, costCents: 648_000 },
+    { userId, name: "Xtrackers MSCI Emerging Markets UCITS ETF", isin: "IE00BTJRMP35", assetClass: "etf", quantity: 40, valueCents: 232_400, costCents: 219_600 },
+    { userId, name: "Allianz SE", isin: "DE0008404005", assetClass: "stock", quantity: 8, valueCents: 212_240, costCents: 168_000 },
+    { userId, name: "SAP SE", isin: "DE0007164600", assetClass: "stock", quantity: 6, valueCents: 131_700, costCents: 142_800 },
+    { userId, name: "Bundesanleihe 2,5 % 2034", isin: "DE000BU2Z023", assetClass: "bond", quantity: 10, valueCents: 98_900, costCents: 100_000 },
+    { userId, name: "Bitcoin", isin: "BTC", assetClass: "crypto", quantity: 0.012, valueCents: 71_300, costCents: 40_000 },
+  ]);
+  const depot = 850_180 + 232_400 + 212_240 + 131_700 + 98_900 + 71_300;
+  await db
+    .insert(schema.portfolioSnapshots)
+    .values(
+      // Verlauf der letzten Monate: leicht steigend mit Schwankungen.
+      Array.from({ length: 12 }, (_, i) => ({
+        userId,
+        date: addDays(today, -7 * (11 - i)),
+        valueCents: i === 11 ? depot : Math.round(depot * (0.86 + i * 0.012 + (rand() - 0.5) * 0.03)),
+      })),
+    )
+    .onConflictDoNothing();
 
   const month = monthOf(today);
   const day = Number(today.slice(8));

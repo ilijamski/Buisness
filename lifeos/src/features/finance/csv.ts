@@ -65,7 +65,7 @@ export function splitCsv(text: string, delimiter: string): string[][] {
   return rows;
 }
 
-const norm = (s: string) =>
+export const norm = (s: string) =>
   s
     .toLowerCase()
     .replace(/ä/g, "ae")
@@ -96,7 +96,7 @@ const COLUMN_NAMES = {
   ],
 } as const;
 
-function findColumn(header: string[], names: readonly string[]): number {
+export function findColumn(header: string[], names: readonly string[]): number {
   const cells = header.map(norm);
   for (const name of names) {
     const exact = cells.indexOf(name);
@@ -131,9 +131,9 @@ export function parseDate(raw: string): string | null {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-/** "-1.234,56", "1,234.56", "12,50-", "45,00 S", "€ 9.99" → Cent mit Vorzeichen. */
-export function parseAmount(raw: string): number | null {
-  let s = raw.trim().replace(/[\s €]|EUR/gi, "");
+/** Zahl in deutscher oder englischer Schreibweise ("-1.234,56", "1,234.56", "12,5", "45,00 S") als Kommazahl. */
+export function parseDecimal(raw: string): number | null {
+  let s = raw.trim().replace(/[\s\u00A0€%]|EUR|USD|Stk\.?|St\./gi, "");
   if (!s) return null;
   let sign = 1;
   if (/[sS]$/.test(s)) sign = -1; // Soll
@@ -158,8 +158,16 @@ export function parseAmount(raw: string): number | null {
     s = s.replace(/\./g, "");
   }
   if (!/^\d+(\.\d+)?$/.test(s)) return null;
-  const cents = Math.round(Number(s) * 100);
-  return Number.isSafeInteger(cents) ? sign * cents : null;
+  const n = sign * Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Betrag in Cent mit Vorzeichen; null bei ungültiger Eingabe. */
+export function parseAmount(raw: string): number | null {
+  const n = parseDecimal(raw);
+  if (n === null) return null;
+  const cents = Math.round(n * 100);
+  return Number.isSafeInteger(cents) ? cents : null;
 }
 
 const clean = (s: string | undefined, max: number) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, max);

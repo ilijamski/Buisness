@@ -158,4 +158,37 @@ export const migrations: { id: number; sql: string }[] = [
       create unique index transactions_external on transactions(user_id, external_id);
     `,
   },
+  {
+    id: 4,
+    sql: `
+      alter table events add column skip_dates text not null default '';
+      create table note_folders (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        name text not null,
+        created_at timestamptz not null default now()
+      );
+      create index note_folders_user_idx on note_folders(user_id);
+      alter table notes add column folder_id uuid references note_folders(id) on delete set null;
+      create table holdings (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        name text not null,
+        isin text not null default '',
+        asset_class text not null default 'stock',
+        quantity double precision not null default 0,
+        value_cents integer not null,
+        cost_cents integer,
+        created_at timestamptz not null default now()
+      );
+      create index holdings_user_idx on holdings(user_id);
+      create table portfolio_snapshots (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        date date not null,
+        value_cents integer not null
+      );
+      create unique index portfolio_snapshots_user_date on portfolio_snapshots(user_id, date);
+    `,
+  },
 ];

@@ -3,7 +3,38 @@ import { and, asc, between, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db/client";
 import { addMonths, monthBounds } from "@/lib/dates";
 
-const { transactions, budgets, accounts } = schema;
+const { transactions, budgets, accounts, holdings, portfolioSnapshots } = schema;
+
+export type HoldingView = { id: string; name: string; isin: string; assetClass: string; quantity: number; valueCents: number; costCents: number | null };
+
+export async function listHoldings(userId: string): Promise<HoldingView[]> {
+  const db = await getDb();
+  return db
+    .select({
+      id: holdings.id,
+      name: holdings.name,
+      isin: holdings.isin,
+      assetClass: holdings.assetClass,
+      quantity: holdings.quantity,
+      valueCents: holdings.valueCents,
+      costCents: holdings.costCents,
+    })
+    .from(holdings)
+    .where(eq(holdings.userId, userId))
+    .orderBy(desc(holdings.valueCents));
+}
+
+/** Depotwert je Tag, älteste zuerst (höchstens die letzten 400 Einträge). */
+export async function listSnapshots(userId: string): Promise<{ date: string; valueCents: number }[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({ date: portfolioSnapshots.date, valueCents: portfolioSnapshots.valueCents })
+    .from(portfolioSnapshots)
+    .where(eq(portfolioSnapshots.userId, userId))
+    .orderBy(desc(portfolioSnapshots.date))
+    .limit(400);
+  return rows.reverse();
+}
 
 export type AccountView = { id: string; name: string; kind: string; color: number; openingCents: number; balanceCents: number; count: number };
 

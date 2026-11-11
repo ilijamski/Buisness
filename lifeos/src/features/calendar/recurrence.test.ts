@@ -48,3 +48,8 @@ test("mehrtägige Serie über die Zeitraumgrenze", () => {
     { start: "2026-11-13", end: "2026-11-15" },
   ]);
 });
+
+test("ausgenommene Termine einer Serie fehlen", () => {
+  const event = { ...ev("2026-11-10", "weekly"), skipDates: "2026-11-17,2026-12-01" };
+  assert.deepEqual(starts(event, "2026-11-01", "2026-11-30"), ["2026-11-10", "2026-11-24"]);
+});

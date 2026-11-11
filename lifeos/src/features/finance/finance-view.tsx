@@ -13,7 +13,9 @@ import { addMonths, formatMedium, formatMonth, formatMonthShort, formatRelative 
 import { cn, formatMoney, formatPercent } from "@/lib/format";
 import { deleteAccount, deleteTransaction, saveAccount, saveBudgets, saveTransaction } from "./actions";
 import { previewImport, runImport, type ImportPreview } from "./import";
-import type { AccountView, MonthTotals } from "./queries";
+import { centsToInput, parseCents } from "./money";
+import { PortfolioCard } from "./portfolio-view";
+import type { AccountView, HoldingView, MonthTotals } from "./queries";
 
 export type TxData = {
   id: string;
@@ -31,16 +33,6 @@ const FLOW_SERIES = [
   { name: "Ausgaben", color: "var(--color-s2)" },
 ];
 
-/** "1.234,56" → 123456 Cent, "1.000" → 100000 Cent; NaN bei ungültiger Eingabe. */
-function parseCents(input: string): number {
-  const cleaned = input.replace(/[€\s]/g, "");
-  // Deutsche Schreibweise: Punkt als Tausendertrenner ("1.000", "1.234,56"), Komma als Dezimalzeichen.
-  const thousands = cleaned.includes(",") || /^\d{1,3}(\.\d{3})+$/.test(cleaned);
-  const normalized = thousands ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
-  return /^\d+(\.\d{1,2})?$/.test(normalized) ? Math.round(Number(normalized) * 100) : NaN;
-}
-
-const centsToInput = (cents: number) => (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(".", ","));
 
 function TransactionDialog({
   open,
@@ -416,6 +408,8 @@ export function FinanceView({
   budgets,
   accounts,
   accountId,
+  holdings,
+  snapshots,
 }: {
   month: string;
   today: string;
@@ -425,6 +419,8 @@ export function FinanceView({
   accounts: AccountView[];
   /** gesetzt, wenn die Ansicht auf ein Konto eingeschränkt ist */
   accountId?: string;
+  holdings: HoldingView[];
+  snapshots: { date: string; valueCents: number }[];
 }) {
   const [dialog, setDialog] = useState<{ tx: TxData | null } | null>(null);
   const [accountDialog, setAccountDialog] = useState<{ account: AccountView | null } | null>(null);
@@ -595,6 +591,8 @@ export function FinanceView({
             </ul>
           ) : null}
         </Card>
+
+        {accountId ? null : <PortfolioCard holdings={holdings} snapshots={snapshots} cashCents={accounts.reduce((a, k) => a + k.balanceCents, 0)} today={today} />}
 
         <section className="card p-2">
           <h2 className="px-3 pt-2 pb-1 text-[15px] font-semibold tracking-tight">Buchungen</h2>

@@ -125,9 +125,9 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Termin angelegt');
   await openDay(14);
-  ok('weekly series occurs on later weeks', await agenda.getByText('E2E Serie').count() === 1);
+  ok('weekly series occurs on later weeks', await agenda.getByText('E2E Serie', { exact: true }).count() === 1);
   await openDay(13);
-  ok('weekly series absent on other weekdays', await agenda.getByText('E2E Serie').count() === 0);
+  ok('weekly series absent on other weekdays', await agenda.getByText('E2E Serie', { exact: true }).count() === 0);
   // Mehrtägiger Termin
   await page.getByRole('button', { name: 'Neuer Termin' }).click();
   await page.locator('dialog[open] input[name=title]').fill('E2E Reise');
@@ -143,16 +143,50 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await shot('05b-kalender-serien');
   await openDay(23);
   ok('multi-day event ends on last day', await agenda.getByText('E2E Reise').count() === 0);
+  // Änderung an einem Serientermin: Rückfrage, dann nur dieser Termin
+  await openDay(7);
+  await agenda.getByText('E2E Serie').click();
+  await page.locator('dialog[open] input[name=title]').fill('E2E Serie verschoben');
+  await page.locator('dialog[open] input[name=startTime]').fill('17:00');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await page.getByText('Änderung übernehmen für …').waitFor({ timeout: 5000 });
+  ok('series edit asks for scope', true);
+  await page.getByRole('button', { name: 'Nur diesen Termin' }).click();
+  await toast('Nur dieser Termin geändert');
+  await openDay(7);
+  const single = await agenda.getByText('E2E Serie verschoben').count() === 1 && await agenda.getByText('E2E Serie', { exact: true }).count() === 0;
+  await openDay(14);
+  ok('single-occurrence edit leaves the rest of the series', single && await agenda.getByText('E2E Serie', { exact: true }).count() === 1 && await agenda.getByText('E2E Serie verschoben').count() === 0);
+  // … und für alle Termine der Serie
+  await agenda.getByText('E2E Serie', { exact: true }).click();
+  await page.locator('dialog[open] input[name=location]').fill('Raum 5');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await page.getByRole('button', { name: 'Alle Termine der Serie' }).click();
+  await toast('Serie gespeichert');
+  await openDay(21);
+  const allChanged = await agenda.getByText('Raum 5').count() === 1;
+  await openDay(7);
+  ok('series-wide edit applies to all but keeps the exception', allChanged && await agenda.getByText('Raum 5').count() === 0 && await agenda.getByText('E2E Serie verschoben').count() === 1);
+  // Nur einen Termin löschen
+  await openDay(21);
+  await agenda.getByText('E2E Serie', { exact: true }).click();
+  await page.locator('dialog[open]').getByRole('button', { name: 'Löschen' }).click();
+  await page.getByRole('button', { name: 'Nur diesen Termin' }).click();
+  await toast('Termin gelöscht');
+  await openDay(21);
+  const oneGone = await agenda.getByText('E2E Serie', { exact: true }).count() === 0;
+  await openDay(28);
+  ok('delete single occurrence keeps later ones', oneGone && await agenda.getByText('E2E Serie', { exact: true }).count() === 1);
   // „Diesen und alle folgenden“ löschen: frühere Termine bleiben
   await openDay(14);
-  await agenda.getByText('E2E Serie').click();
+  await agenda.getByText('E2E Serie', { exact: true }).click();
   await page.locator('dialog[open]').getByRole('button', { name: 'Löschen' }).click();
   await page.getByRole('button', { name: 'Diesen und alle folgenden' }).click();
   await toast('Folgende Termine gelöscht');
-  await openDay(14);
-  const gone = await agenda.getByText('E2E Serie').count() === 0;
-  await openDay(7);
-  ok('delete this-and-following keeps earlier occurrences', gone && await agenda.getByText('E2E Serie').count() === 1);
+  await openDay(28);
+  const gone = await agenda.getByText('E2E Serie', { exact: true }).count() === 0;
+  await openDay(0);
+  ok('delete this-and-following keeps earlier occurrences', gone && await agenda.getByText('E2E Serie', { exact: true }).count() === 1);
   await page.goto(BASE + '/kalender');
   await page.getByRole('link', { name: 'Nächster Monat' }).click();
   await page.waitForURL(`**m=${iso(nextMonth).slice(0, 7)}`);
@@ -200,6 +234,26 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.getByRole('button', { name: /E2E Notiz/ }).click();
   ok('note autosave persisted', (await page.getByLabel('Inhalt der Notiz').inputValue()) === 'Automatisch gespeicherter Inhalt.');
 
+  // Ordner: anlegen, Notiz verschieben, filtern, Ordner löschen (Notiz bleibt)
+  await page.getByRole('button', { name: 'Neuer Ordner' }).click();
+  await page.locator('dialog[open] input[name=name]').fill('E2E Ordner');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Ordner angelegt');
+  await page.getByLabel('Ordner der Notiz').selectOption({ label: 'E2E Ordner' });
+  await toast('Notiz verschoben');
+  await page.getByRole('tab', { name: /E2E Ordner/ }).click();
+  await page.waitForTimeout(300);
+  const inFolder = await page.locator('ul button[aria-current]').count();
+  ok('folder shows only its notes', inFolder === 1 && await page.getByRole('button', { name: /E2E Notiz/ }).count() === 1 && await page.getByRole('button', { name: /Packliste Umzug/ }).count() === 0);
+  await page.getByRole('button', { name: 'Neue Notiz' }).click();
+  await page.getByRole('tab', { name: /E2E Ordner\s*2/ }).waitFor({ timeout: 8000 }).then(() => ok('new note lands in open folder', true), () => ok('new note lands in open folder', false));
+  await shot('08b-ordner');
+  await page.getByRole('button', { name: 'Ordner „E2E Ordner“ bearbeiten' }).click();
+  await page.locator('dialog[open]').getByRole('button', { name: 'Löschen' }).click();
+  await toast('Ordner gelöscht – die Notizen bleiben erhalten');
+  await page.waitForTimeout(400);
+  ok('deleting a folder keeps its notes', await page.getByRole('tab', { name: /E2E Ordner/ }).count() === 0 && await page.getByRole('button', { name: /E2E Notiz/ }).count() === 1);
+
   // --- Finance
   await page.goto(BASE + '/finanzen');
   await page.waitForTimeout(1200);
@@ -209,7 +263,7 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] input[name=description]').fill('E2E Buchung');
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Buchung angelegt');
-  ok('create transaction with 1.234,56', await page.getByText('− 1.234,56 €').count() > 0);
+  ok('create transaction with 1.234,56', await page.getByText('− 1.234,56 €').first().waitFor({ timeout: 8000 }).then(() => true, () => false));
   // Konten und Kontoauszug-Import
   await page.getByRole('button', { name: 'Konto', exact: true }).click();
   await page.locator('dialog[open] input[name=name]').fill('E2E Bank');
@@ -256,6 +310,35 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.getByRole('link', { name: /E2E Bank/ }).click();
   await page.waitForURL((u) => !u.search.includes('k='));
   await page.waitForTimeout(400);
+  // Portfolio hochladen
+  const depotCsv = [
+    '"Depot 12345";"Stand heute"', '',
+    '"Bezeichnung";"ISIN";"Stück";"Einstandskurs";"Kurs";"Kurswert in EUR"',
+    '"E2E World UCITS ETF";"IE00B4L5Y983";"10,5";"80,00";"100,00";"1.050,00"',
+    '"E2E Aktie AG";"DE0008404005";"4";"300,00";"250,00";"1.000,00"',
+    '"Gesamt";"";"";"";"";"2.050,00"',
+  ].join('\r\n');
+  await page.getByRole('button', { name: 'Portfolio hochladen' }).click();
+  await page.locator('dialog[open] input[type=file]').setInputFiles({ name: 'depot.csv', mimeType: 'text/csv', buffer: Buffer.from(depotCsv, 'latin1') });
+  await page.getByText('2 Positionen · 2.050,00 €').waitFor({ timeout: 10000 });
+  ok('portfolio preview warns about replacing', await page.locator('dialog[open]').getByText(/wird\s+durch diesen Stand ersetzt/).count() === 1);
+  await shot('09f-portfolio-upload');
+  await page.getByRole('button', { name: '2 Positionen übernehmen' }).click();
+  await toast('Portfolio mit 2 Positionen übernommen');
+  await page.waitForTimeout(600);
+  const pf = page.locator('section', { has: page.getByRole('heading', { name: 'Portfolio' }) });
+  // Kaufwert 840 + 1.200 = 2.040 → +10,00 €
+  const pfChecks = [await pf.getByText('2.050,00 €').count(), await pf.getByText(/\+ 10,00\s€/).count(), await pf.getByText('ETFs').count(), await pf.locator('tr', { hasText: 'E2E Aktie AG' }).getByText(/200,00\s€/).count()];
+  ok('portfolio shows value, gain and classes', pfChecks.every((n) => n > 0), JSON.stringify(pfChecks));
+  await pf.getByRole('button', { name: 'Position', exact: true }).click();
+  await page.locator('dialog[open] input[name=name]').fill('E2E Gold');
+  await page.locator('dialog[open] select[name=assetClass]').selectOption('other');
+  await page.locator('dialog[open] input[name=value]').fill('950');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Position angelegt');
+  await page.waitForTimeout(500);
+  ok('manual position adds to total', await pf.getByText('3.000,00 €').first().isVisible());
+  await shot('09g-portfolio');
   // Budgets
   await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
   await page.locator('dialog[open] input[name=housing]').fill('1.000');
@@ -266,6 +349,7 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await shot('09c-budgets');
   // chart hover
   const bars = page.getByRole('img', { name: /Einnahmen und Ausgaben je Monat/ });
+  await bars.scrollIntoViewIfNeeded();
   const bb = await bars.boundingBox();
   await page.mouse.move(bb.x + bb.width - 40, bb.y + 60);
   await page.waitForTimeout(200);
@@ -328,8 +412,9 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   ok('search opens found note', (await page.getByLabel('Titel der Notiz').inputValue()) === 'Buchnotizen: Deep Work');
   await page.keyboard.press('Control+k');
   await page.getByLabel('Suchen oder Aufgabe anlegen').fill('100%_');
-  await page.waitForTimeout(900);
-  ok('search treats % and _ literally', await page.getByRole('option').count() === 1);
+  await page.waitForTimeout(1200);
+  const literal = await page.locator('dialog[open]').getByRole('option').allInnerTexts();
+  ok('search treats % and _ literally', literal.length === 1, JSON.stringify(literal).slice(0, 200));
   await page.keyboard.press('Escape');
 
   // --- Settings
@@ -379,7 +464,7 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await p2.getByText('Willkommen bei LifeOS').waitFor({ timeout: 10000 });
   ok('second user starts empty', true);
   const exp2 = await (await p2.request.get(BASE + '/api/export')).json();
-  ok('second user export empty', exp2.tasks.length === 0 && exp2.notes.length === 0 && exp2.accounts.length === 0);
+  ok('second user export empty', exp2.tasks.length === 0 && exp2.notes.length === 0 && exp2.accounts.length === 0 && exp2.holdings.length === 0 && exp2.noteFolders.length === 0);
   // Import in ein fremdes Konto muss scheitern
   await p2.goto(BASE + '/finanzen');
   await p2.getByRole('button', { name: 'Konto', exact: true }).click();

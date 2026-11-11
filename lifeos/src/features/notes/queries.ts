@@ -1,8 +1,19 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db/client";
 
-const { notes } = schema;
+const { notes, noteFolders } = schema;
+
+export type FolderView = { id: string; name: string };
+
+export async function listFolders(userId: string): Promise<FolderView[]> {
+  const db = await getDb();
+  return db
+    .select({ id: noteFolders.id, name: noteFolders.name })
+    .from(noteFolders)
+    .where(eq(noteFolders.userId, userId))
+    .orderBy(asc(noteFolders.name));
+}
 
 export async function listNotes(userId: string) {
   const db = await getDb();
@@ -16,6 +27,7 @@ export async function listNotes(userId: string) {
     title: n.title,
     content: n.content,
     pinned: n.pinned,
+    folderId: n.folderId,
     updatedAt: n.updatedAt.toISOString(),
   }));
 }

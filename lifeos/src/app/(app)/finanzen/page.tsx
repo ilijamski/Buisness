@@ -1,5 +1,5 @@
 import { FinanceView } from "@/features/finance/finance-view";
-import { listAccounts, listBudgets, listTransactions, monthlyTotals } from "@/features/finance/queries";
+import { listAccounts, listBudgets, listHoldings, listSnapshots, listTransactions, monthlyTotals } from "@/features/finance/queries";
 import { getClock, requireUser } from "@/lib/auth/session";
 import { isMonthKey, monthOf } from "@/lib/dates";
 
@@ -11,10 +11,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const month = isMonthKey(params.m) ? params.m : monthOf(today);
   const accounts = await listAccounts(user.id);
   const accountId = accounts.find((a) => a.id === params.k)?.id;
-  const [transactions, history, budgets] = await Promise.all([
+  const [transactions, history, budgets, holdings, snapshots] = await Promise.all([
     listTransactions(user.id, month, accountId),
     monthlyTotals(user.id, month, 6, accountId),
     listBudgets(user.id),
+    listHoldings(user.id),
+    listSnapshots(user.id),
   ]);
   return (
     <FinanceView
@@ -24,6 +26,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       budgets={budgets}
       accounts={accounts}
       accountId={accountId}
+      holdings={holdings}
+      snapshots={snapshots}
       transactions={transactions.map(({ id, type, amountCents, category, description, counterparty, accountId: account, date }) => ({
         id, type, amountCents, category, description, counterparty, accountId: account, date,
       }))}

@@ -24,12 +24,12 @@ auf dem leeren Dashboard „Beispieldaten laden“ wählen – fertig.
 | --- | --- |
 | Dashboard | Tagesübersicht: fällige Aufgaben, Termine, Gewohnheiten zum Abhaken, Monatssaldo, Zielfortschritt, Wochenverlauf |
 | Aufgaben | Prioritäten, Status, Fälligkeit, Projektzuordnung, Schnellerfassung, Filter und Suche; wiederkehrende Aufgaben legen beim Erledigen die nächste an |
-| Kalender | Monatsansicht mit Terminen und fälligen Aufgaben, Tagesagenda; mehrtägige Termine und Serien (täglich, wöchentlich, monatlich, jährlich, optional mit Enddatum) |
+| Kalender | Monatsansicht mit Terminen und fälligen Aufgaben, Tagesagenda; mehrtägige Termine und Serien (täglich, wöchentlich, monatlich, jährlich, optional mit Enddatum); Änderungen und Löschen wahlweise nur für einen Termin oder die ganze Serie |
 | Projekte | Kanban-Board (Drag & Drop) mit Fortschritt je Projekt |
 | Ziele | Messbare Ziele mit Zielwert, Einheit, Termin und Fortschrittsring |
 | Gewohnheiten | 7-Tage-Raster, Serien, Wochenziel, Heatmap über 18 Wochen |
-| Notizen | Zweispaltiger Editor mit automatischem Speichern, Anheften, Suche |
-| Finanzen | Konten mit Kontostand, Import von Kontoauszügen (CSV) mit automatischer Kategorie und Dubletten-Erkennung, Einnahmen/Ausgaben, Sparquote, 6-Monats-Verlauf, Monatsbudgets |
+| Notizen | Zweispaltiger Editor mit automatischem Speichern, Ordner, Anheften, Suche |
+| Finanzen | Portfolio (Depotübersicht als CSV hochladen oder Positionen von Hand, Aufteilung, Gewinn/Verlust, Wertverlauf), Konten mit Kontostand, Import von Kontoauszügen (CSV) mit automatischer Kategorie und Dubletten-Erkennung, Einnahmen/Ausgaben, Sparquote, 6-Monats-Verlauf, Monatsbudgets |
 | Statistiken | Wochenbericht in Worten, Vergleich zur Vorwoche, 12-Wochen-Trends, Tabellenansicht |
 | Einstellungen | Profil, Passwort, JSON-Export, Inhalte oder Konto löschen |
 
@@ -116,7 +116,7 @@ Dateisystem nicht beschreibbar ist – die App meldet das mit einer klaren Fehle
 ## Tests
 
 ```bash
-npm test            # Unit-Tests: Datumslogik, Serientermine, Kontoauszug-Parser
+npm test            # Unit-Tests: Datumslogik, Serientermine, Kontoauszug- und Depot-Parser
 npm run typecheck
 npm run lint
 
@@ -131,8 +131,8 @@ auf dem Smartphone.
 ## Bekannte Grenzen
 
 - Kein „Passwort vergessen“ per E-Mail und keine E-Mail-Bestätigung (es ist kein Mailversand angebunden).
-- Serientermine lassen sich nur als Ganzes ändern. Löschen geht für die ganze Serie oder „diesen und
-  alle folgenden“ – ein einzelnes Vorkommen mitten aus einer Serie herauszunehmen geht nicht.
+- Portfolio-Kurse werden nicht automatisch aktualisiert; der Wert entspricht dem zuletzt hochgeladenen
+  oder eingetragenen Stand. Ein Upload ersetzt den gesamten Bestand (Momentaufnahme).
 - Keine direkte Bankanbindung (siehe oben); Buchungen kommen per CSV-Import oder von Hand.
 - Umbuchungen zwischen eigenen Konten werden nicht als solche erkannt – sie zählen als Ausgabe
   auf dem einen und Einnahme auf dem anderen Konto.

@@ -76,6 +76,17 @@ export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
   credit: "Kreditkarte",
 };
 
+export const ASSET_CLASSES = [
+  { key: "stock", label: "Aktien", color: 1 },
+  { key: "etf", label: "ETFs", color: 3 },
+  { key: "fund", label: "Fonds", color: 7 },
+  { key: "bond", label: "Anleihen", color: 4 },
+  { key: "crypto", label: "Krypto", color: 2 },
+  { key: "other", label: "Sonstiges", color: 0 },
+] as const;
+export type AssetClass = (typeof ASSET_CLASSES)[number]["key"];
+export const assetClassMeta = (key: string) => ASSET_CLASSES.find((c) => c.key === key) ?? ASSET_CLASSES[ASSET_CLASSES.length - 1];
+
 export const COLOR_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const COLOR_NAME: Record<number, string> = {
   1: "Blau", 2: "Orange", 3: "Türkis", 4: "Gelb", 5: "Magenta", 6: "Grün", 7: "Violett", 8: "Rot",

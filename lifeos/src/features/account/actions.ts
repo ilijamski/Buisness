@@ -20,6 +20,9 @@ const dataTables = [
   schema.notes,
   schema.transactions,
   schema.accounts,
+  schema.holdings,
+  schema.portfolioSnapshots,
+  schema.noteFolders,
   schema.budgets,
 ] as const;
 
