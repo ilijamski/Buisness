@@ -208,8 +208,54 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Buchung angelegt');
   ok('create transaction with 1.234,56', await page.getByText('− 1.234,56 €').count() > 0);
+  // Konten und Kontoauszug-Import
+  await page.getByRole('button', { name: 'Konto', exact: true }).click();
+  await page.locator('dialog[open] input[name=name]').fill('E2E Bank');
+  await page.locator('dialog[open] input[name=opening]').fill('1.000');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Konto angelegt');
+  const d = (offset) => { const x = day(offset); return `${pad(x.getDate())}.${pad(x.getMonth() + 1)}.${x.getFullYear()}`; };
+  // Wie ein echter Bankexport: Vorspann, Semikolon, Windows-1252, Summenzeile, zwei identische Buchungen
+  const csv = [
+    '"Girokonto";"DE00 0000"', '',
+    '"Buchungstag";"Wertstellung";"Beguenstigter/Zahlungspflichtiger";"Verwendungszweck";"Betrag (EUR)"',
+    `"${d(0)}";"${d(0)}";"REWE Markt GmbH";"Einkauf";"-42,17"`,
+    `"${d(0)}";"${d(0)}";"Bäckerei Müller";"Brötchen";"-3,80"`,
+    `"${d(0)}";"${d(0)}";"Bäckerei Müller";"Brötchen";"-3,80"`,
+    `"${d(-1)}";"${d(-1)}";"Muster AG";"Gehalt";"2.500,00"`,
+    '"Summe";"";"";"";""',
+  ].join('\r\n');
+  const file = { name: 'umsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'latin1') };
+  const openImport = async () => {
+    await page.getByRole('button', { name: 'Kontoauszug importieren' }).click();
+    await page.locator('dialog[open] select[name=accountId]').selectOption({ label: 'E2E Bank' });
+    await page.locator('dialog[open] input[type=file]').setInputFiles(file);
+  };
+  await openImport();
+  await page.getByText('4 neue Buchungen').waitFor({ timeout: 10000 });
+  ok('import preview: umlauts decoded, salary categorised', await page.locator('dialog[open]').getByText('Bäckerei Müller').count() === 2
+    && await page.locator('dialog[open]').getByText(/Gehalt$/).count() > 0 && await page.locator('dialog[open]').getByText(/1 Zeilen ohne Buchung/).count() === 1);
+  await shot('09d-import');
+  await page.getByRole('button', { name: '4 Buchungen importieren' }).click();
+  await toast('4 Buchungen importiert');
+  await page.waitForTimeout(500);
+  // 1.000 Anfangsstand + 2.500 − 42,17 − 3,80 − 3,80
+  ok('account balance = opening + imported', await page.locator('li', { hasText: 'E2E Bank' }).getByText('3.450,23 €').count() === 1);
+  await openImport();
+  await page.getByText('0 neue Buchungen · 4 bereits vorhanden').waitFor({ timeout: 10000 });
+  ok('re-import detects all duplicates', await page.getByRole('button', { name: 'Importieren', exact: true }).isDisabled());
+  await page.locator('dialog[open]').getByRole('button', { name: 'Abbrechen' }).click();
+  // Konto-Filter
+  await page.getByRole('link', { name: /E2E Bank/ }).click();
+  await page.waitForURL('**k=*');
+  await page.getByText('Nur Konto „E2E Bank“').waitFor();
+  ok('account filter limits totals', await page.getByText('2.500,00 €').first().isVisible() && await page.getByText('49,77 €').count() > 0);
+  await shot('09e-konto');
+  await page.getByRole('link', { name: /E2E Bank/ }).click();
+  await page.waitForURL((u) => !u.search.includes('k='));
+  await page.waitForTimeout(400);
   // Budgets
-  await page.getByRole('button', { name: 'Bearbeiten' }).click();
+  await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
   await page.locator('dialog[open] input[name=housing]').fill('1.000');
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Budgets gespeichert');
@@ -331,7 +377,18 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await p2.getByText('Willkommen bei LifeOS').waitFor({ timeout: 10000 });
   ok('second user starts empty', true);
   const exp2 = await (await p2.request.get(BASE + '/api/export')).json();
-  ok('second user export empty', exp2.tasks.length === 0 && exp2.notes.length === 0);
+  ok('second user export empty', exp2.tasks.length === 0 && exp2.notes.length === 0 && exp2.accounts.length === 0);
+  // Import in ein fremdes Konto muss scheitern
+  await p2.goto(BASE + '/finanzen');
+  await p2.getByRole('button', { name: 'Konto', exact: true }).click();
+  await p2.locator('dialog[open] input[name=name]').fill('Eigenes');
+  await p2.locator('dialog[open] button[type=submit]').click();
+  await p2.getByText('Konto angelegt', { exact: true }).waitFor();
+  await p2.getByRole('button', { name: 'Kontoauszug importieren' }).click();
+  await p2.evaluate((foreign) => { const sel = document.querySelector('dialog[open] select[name=accountId]'); sel.options[0].value = foreign; }, json.accounts[0].id);
+  await p2.locator('dialog[open] input[type=file]').setInputFiles({ name: 'x.csv', mimeType: 'text/csv', buffer: Buffer.from('Datum;Betrag\n01.01.2026;-1,00\n') });
+  await p2.locator('dialog[open] p[role=alert]').waitFor({ timeout: 10000 });
+  ok('import into foreign account rejected', (await p2.locator('dialog[open] p[role=alert]').innerText()).includes('Konto auswählen'));
   const projId = json.projects[0].id;
   await p2.goto(BASE + '/projekte/' + projId);
   await p2.getByText('Diese Seite gibt es nicht').waitFor({ timeout: 10000 });

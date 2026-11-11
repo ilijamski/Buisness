@@ -155,6 +155,22 @@ export const notes = pgTable(
   (t) => [index("notes_user_idx").on(t.userId)],
 );
 
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: id(),
+    userId: owner(),
+    name: text("name").notNull(),
+    /** checking | savings | cash | credit */
+    kind: text("kind").notNull().default("checking"),
+    /** Kontostand vor der ersten erfassten Buchung */
+    openingCents: integer("opening_cents").notNull().default(0),
+    color: integer("color").notNull().default(1),
+    createdAt: createdAt(),
+  },
+  (t) => [index("accounts_user_idx").on(t.userId)],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -164,10 +180,18 @@ export const transactions = pgTable(
     amountCents: integer("amount_cents").notNull(),
     category: text("category").notNull(),
     description: text("description").notNull().default(""),
+    /** Zahlungsempfänger bzw. Auftraggeber */
+    counterparty: text("counterparty").notNull().default(""),
     date: date("date", { mode: "string" }).notNull(),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    /** Kennung aus Import oder Bankabruf; verhindert doppelte Buchungen */
+    externalId: text("external_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("transactions_user_date_idx").on(t.userId, t.date)],
+  (t) => [
+    index("transactions_user_date_idx").on(t.userId, t.date),
+    uniqueIndex("transactions_external").on(t.userId, t.externalId),
+  ],
 );
 
 export const budgets = pgTable(

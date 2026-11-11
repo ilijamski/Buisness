@@ -139,4 +139,23 @@ export const migrations: { id: number; sql: string }[] = [
       create unique index budgets_user_category on budgets(user_id, category);
     `,
   },
+  {
+    id: 3,
+    sql: `
+      create table accounts (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        name text not null,
+        kind text not null default 'checking',
+        opening_cents integer not null default 0,
+        color integer not null default 1,
+        created_at timestamptz not null default now()
+      );
+      create index accounts_user_idx on accounts(user_id);
+      alter table transactions add column counterparty text not null default '';
+      alter table transactions add column account_id uuid references accounts(id) on delete set null;
+      alter table transactions add column external_id text;
+      create unique index transactions_external on transactions(user_id, external_id);
+    `,
+  },
 ];

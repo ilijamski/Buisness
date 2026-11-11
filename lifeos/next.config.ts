@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   // Die App liegt in einem Unterordner eines Repos mit eigenem Lockfile.
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
+  // Kontoauszüge (CSV) werden per Server Action hochgeladen.
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [
       {

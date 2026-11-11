@@ -133,13 +133,20 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
 
   const month = monthOf(today);
   const day = Number(today.slice(8));
-  const txs: { userId: string; type: string; amountCents: number; category: string; description: string; date: string }[] = [];
+  const [giro] = await db
+    .insert(schema.accounts)
+    .values([
+      { userId, name: "Girokonto", kind: "checking", openingCents: 184_000, color: 1, createdAt: past(200) },
+      { userId, name: "Tagesgeld", kind: "savings", openingCents: 420_000, color: 3, createdAt: past(199) },
+    ])
+    .returning({ id: schema.accounts.id });
+  const txs: { userId: string; accountId: string; type: string; amountCents: number; category: string; description: string; date: string }[] = [];
   for (let m = 0; m < 6; m++) {
     const key = addMonths(month, -m);
     const lastDay = m === 0 ? day : 28;
     const on = (d: number) => `${key}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
     const add = (type: string, category: string, description: string, euros: number, d: number) => {
-      if (d <= lastDay) txs.push({ userId, type, category, description, amountCents: Math.round(euros * 100), date: on(d) });
+      if (d <= lastDay) txs.push({ userId, accountId: giro.id, type, category, description, amountCents: Math.round(euros * 100), date: on(d) });
     };
     add("income", "salary", "Gehalt", 3450, 1);
     if (rand() > 0.4) add("income", "freelance", "Projekt Studio Nord", 400 + Math.floor(rand() * 9) * 100, 12 + Math.floor(rand() * 10));

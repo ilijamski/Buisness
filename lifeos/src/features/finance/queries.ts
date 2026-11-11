@@ -1,9 +1,32 @@
 import "server-only";
-import { and, between, desc, eq, sql } from "drizzle-orm";
+import { and, asc, between, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db/client";
 import { addMonths, monthBounds } from "@/lib/dates";
 
-const { transactions, budgets } = schema;
+const { transactions, budgets, accounts } = schema;
+
+export type AccountView = { id: string; name: string; kind: string; color: number; openingCents: number; balanceCents: number; count: number };
+
+/** Konten mit aktuellem Stand (Anfangsstand plus alle erfassten Buchungen). */
+export async function listAccounts(userId: string): Promise<AccountView[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      id: accounts.id,
+      name: accounts.name,
+      kind: accounts.kind,
+      color: accounts.color,
+      openingCents: accounts.openingCents,
+      movement: sql<number>`coalesce(sum(case when ${transactions.type} = 'income' then ${transactions.amountCents} else -${transactions.amountCents} end), 0)::int`,
+      count: sql<number>`count(${transactions.id})::int`,
+    })
+    .from(accounts)
+    .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+    .where(eq(accounts.userId, userId))
+    .groupBy(accounts.id)
+    .orderBy(asc(accounts.createdAt));
+  return rows.map(({ movement, ...a }) => ({ ...a, balanceCents: a.openingCents + movement }));
+}
 
 /** Monatsbudgets als Zuordnung Kategorie → Cent. */
 export async function listBudgets(userId: string): Promise<Record<string, number>> {
@@ -12,20 +35,27 @@ export async function listBudgets(userId: string): Promise<Record<string, number
   return Object.fromEntries(rows.map((b) => [b.category, b.amountCents]));
 }
 
-export async function listTransactions(userId: string, month: string) {
+/** `accountId` schränkt auf ein Konto ein; ohne Angabe zählen alle Buchungen. */
+export async function listTransactions(userId: string, month: string, accountId?: string) {
   const db = await getDb();
   const { start, end } = monthBounds(month);
   return db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), between(transactions.date, start, end)))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        between(transactions.date, start, end),
+        accountId ? eq(transactions.accountId, accountId) : undefined,
+      ),
+    )
     .orderBy(desc(transactions.date), desc(transactions.createdAt));
 }
 
 export type MonthTotals = { month: string; income: number; expense: number };
 
 /** Einnahmen und Ausgaben je Monat für die letzten `count` Monate bis einschließlich `month`. */
-export async function monthlyTotals(userId: string, month: string, count: number): Promise<MonthTotals[]> {
+export async function monthlyTotals(userId: string, month: string, count: number, accountId?: string): Promise<MonthTotals[]> {
   const db = await getDb();
   const first = addMonths(month, -(count - 1));
   const rows = await db
@@ -35,7 +65,13 @@ export async function monthlyTotals(userId: string, month: string, count: number
       total: sql<number>`sum(${transactions.amountCents})::int`,
     })
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), between(transactions.date, `${first}-01`, monthBounds(month).end)))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        between(transactions.date, `${first}-01`, monthBounds(month).end),
+        accountId ? eq(transactions.accountId, accountId) : undefined,
+      ),
+    )
     .groupBy(sql`1`, transactions.type);
   return Array.from({ length: count }, (_, i) => {
     const m = addMonths(first, i);

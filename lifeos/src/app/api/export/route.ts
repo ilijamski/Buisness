@@ -8,7 +8,7 @@ export async function GET() {
   if (!user) return new Response("Nicht angemeldet", { status: 401 });
   const [db, { today }] = await Promise.all([getDb(), getClock()]);
   const own = <T extends { userId: unknown }>(rows: T[]) => rows.map((row) => ({ ...row, userId: undefined }));
-  const [projects, tasks, events, goals, habits, habitLogs, notes, transactions, budgets] = await Promise.all([
+  const [projects, tasks, events, goals, habits, habitLogs, notes, transactions, budgets, accounts] = await Promise.all([
     db.select().from(schema.projects).where(eq(schema.projects.userId, user.id)),
     db.select().from(schema.tasks).where(eq(schema.tasks.userId, user.id)),
     db.select().from(schema.events).where(eq(schema.events.userId, user.id)),
@@ -18,6 +18,7 @@ export async function GET() {
     db.select().from(schema.notes).where(eq(schema.notes.userId, user.id)),
     db.select().from(schema.transactions).where(eq(schema.transactions.userId, user.id)),
     db.select().from(schema.budgets).where(eq(schema.budgets.userId, user.id)),
+    db.select().from(schema.accounts).where(eq(schema.accounts.userId, user.id)),
   ]);
   const body = JSON.stringify(
     {
@@ -32,6 +33,7 @@ export async function GET() {
       notes: own(notes),
       transactions: own(transactions),
       budgets: own(budgets),
+      accounts: own(accounts),
     },
     null,
     2,

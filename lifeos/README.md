@@ -29,7 +29,7 @@ auf dem leeren Dashboard „Beispieldaten laden“ wählen – fertig.
 | Ziele | Messbare Ziele mit Zielwert, Einheit, Termin und Fortschrittsring |
 | Gewohnheiten | 7-Tage-Raster, Serien, Wochenziel, Heatmap über 18 Wochen |
 | Notizen | Zweispaltiger Editor mit automatischem Speichern, Anheften, Suche |
-| Finanzen | Einnahmen/Ausgaben, Kategorien, Sparquote, 6-Monats-Verlauf, Monatsbudgets je Kategorie |
+| Finanzen | Konten mit Kontostand, Import von Kontoauszügen (CSV) mit automatischer Kategorie und Dubletten-Erkennung, Einnahmen/Ausgaben, Sparquote, 6-Monats-Verlauf, Monatsbudgets |
 | Statistiken | Wochenbericht in Worten, Vergleich zur Vorwoche, 12-Wochen-Trends, Tabellenansicht |
 | Einstellungen | Profil, Passwort, JSON-Export, Inhalte oder Konto löschen |
 
@@ -67,6 +67,20 @@ Regeln, die überall gelten:
 - Serientermine werden als **eine** Zeile gespeichert und beim Lesen zu Vorkommen aufgefächert
   (`src/features/calendar/recurrence.ts`, mit Unit-Tests).
 
+## Kontoauszüge und Bankanbindung
+
+**Heute:** Unter Finanzen → „Kontoauszug importieren“ liest LifeOS den CSV-Export einer Bank ein
+(`src/features/finance/csv.ts`): Trennzeichen, Vorspann, Windows-1252, deutsche Datums- und
+Zahlenformate sowie getrennte Soll/Haben-Spalten werden erkannt. Jede Buchung bekommt eine
+stabile Kennung (`external_id`), sodass derselbe Auszug beliebig oft eingelesen werden kann,
+ohne Dubletten zu erzeugen. Kategorien folgen zuerst dem, wie derselbe Zahlungspartner zuletzt
+eingeordnet wurde, danach Stichwörtern.
+
+**Noch nicht:** ein automatischer Abruf direkt bei der Bank. Dafür ist ein lizenzierter
+Kontoinformationsdienst (PSD2) mit eigenen Zugangsdaten nötig. Der Import ist so gebaut, dass
+ein solcher Abruf dieselbe Aufbereitung (`prepare` in `src/features/finance/import.ts`) nutzt
+und nur noch die Buchungen liefern muss.
+
 ## Datenbank
 
 Postgres, angesprochen über Drizzle ORM. Zwei Betriebsarten mit demselben Schema:
@@ -102,7 +116,7 @@ Dateisystem nicht beschreibbar ist – die App meldet das mit einer klaren Fehle
 ## Tests
 
 ```bash
-npm test            # Unit-Tests der Datums- und Serienlogik
+npm test            # Unit-Tests: Datumslogik, Serientermine, Kontoauszug-Parser
 npm run typecheck
 npm run lint
 
@@ -119,6 +133,9 @@ auf dem Smartphone.
 - Kein „Passwort vergessen“ per E-Mail und keine E-Mail-Bestätigung (es ist kein Mailversand angebunden).
 - Serientermine lassen sich nur als Ganzes ändern. Löschen geht für die ganze Serie oder „diesen und
   alle folgenden“ – ein einzelnes Vorkommen mitten aus einer Serie herauszunehmen geht nicht.
+- Keine direkte Bankanbindung (siehe oben); Buchungen kommen per CSV-Import oder von Hand.
+- Umbuchungen zwischen eigenen Konten werden nicht als solche erkannt – sie zählen als Ausgabe
+  auf dem einen und Einnahme auf dem anderen Konto.
 - Budgets gelten für jeden Monat gleich; abweichende Budgets einzelner Monate gibt es nicht.
 - Währung ist fest Euro, Oberfläche fest Deutsch.
 - Die Anmeldebremse zählt pro Serverinstanz; bei mehreren Instanzen gehört sie in die Datenbank.

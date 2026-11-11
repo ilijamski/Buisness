@@ -67,6 +67,15 @@ export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
 export const categoryMeta = (key: string) =>
   ALL_CATEGORIES.find((c) => c.key === key) ?? { key, label: "Sonstiges", color: 0 };
 
+export const ACCOUNT_KINDS = ["checking", "savings", "cash", "credit"] as const;
+export type AccountKind = (typeof ACCOUNT_KINDS)[number];
+export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
+  checking: "Girokonto",
+  savings: "Sparkonto",
+  cash: "Bargeld",
+  credit: "Kreditkarte",
+};
+
 export const COLOR_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const COLOR_NAME: Record<number, string> = {
   1: "Blau", 2: "Orange", 3: "Türkis", 4: "Gelb", 5: "Magenta", 6: "Grün", 7: "Violett", 8: "Rot",
