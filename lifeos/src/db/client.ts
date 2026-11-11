@@ -37,8 +37,19 @@ async function connect(): Promise<Db> {
   if (url) {
     const { default: postgres } = await import("postgres");
     const { drizzle } = await import("drizzle-orm/postgres-js");
-    // prepare:false hält die Verbindung kompatibel mit Connection-Poolern (z. B. Supabase).
-    const sql = postgres(url, { prepare: false, max: 5, idle_timeout: 20, connect_timeout: 10, onnotice: () => {} });
+    // Einstellungen für Connection-Pooler im Transaktionsmodus (z. B. Supabase):
+    //  - prepare:false   – keine benannten Statements, die an einer Backend-Verbindung hängen.
+    //  - max_pipeline:1  – je Verbindung nur eine Abfrage unterwegs. Mit Pipelining gingen
+    //                      hinter dem Pooler Antworten verloren, sobald eine Seite mehr
+    //                      Abfragen gleichzeitig stellte, als Verbindungen offen waren.
+    const sql = postgres(url, {
+      prepare: false,
+      max: 5,
+      max_pipeline: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      onnotice: () => {},
+    });
     await runMigrations(
       (q) => sql.unsafe(q),
       async (q) => (await sql.unsafe(q)) as unknown as Record<string, unknown>[],
