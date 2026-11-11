@@ -62,6 +62,13 @@ export function addMonths(month: string, n: number): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
 }
 
+/** Verschiebt ein Datum um Monate; fehlt der Tag im Zielmonat, gilt dessen letzter Tag (31. Jan → 28. Feb). */
+export function addMonthsClamped(iso: string, n: number): string {
+  const target = addMonths(iso.slice(0, 7), n);
+  const last = Number(monthBounds(target).end.slice(8));
+  return `${target}-${pad(Math.min(Number(iso.slice(8)), last))}`;
+}
+
 export function monthBounds(month: string): { start: string; end: string } {
   const start = `${month}-01`;
   return { start, end: addDays(`${addMonths(month, 1)}-01`, -1) };

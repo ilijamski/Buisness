@@ -65,6 +65,8 @@ export const tasks = pgTable(
     status: text("status").notNull().default("todo"),
     dueDate: date("due_date", { mode: "string" }),
     completedOn: date("completed_on", { mode: "string" }),
+    /** none | daily | weekly | monthly – beim Erledigen entsteht die nächste Aufgabe */
+    repeat: text("repeat").notNull().default("none"),
     createdAt: createdAt(),
   },
   (t) => [index("tasks_user_idx").on(t.userId), index("tasks_project_idx").on(t.projectId)],
@@ -79,6 +81,11 @@ export const events = pgTable(
     description: text("description").notNull().default(""),
     location: text("location").notNull().default(""),
     date: date("date", { mode: "string" }).notNull(),
+    /** letzter Tag eines mehrtägigen Termins; null = eintägig */
+    endDate: date("end_date", { mode: "string" }),
+    /** none | daily | weekly | monthly | yearly */
+    repeat: text("repeat").notNull().default("none"),
+    repeatUntil: date("repeat_until", { mode: "string" }),
     startTime: text("start_time"),
     endTime: text("end_time"),
     color: integer("color").notNull().default(1),
@@ -161,6 +168,17 @@ export const transactions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("transactions_user_date_idx").on(t.userId, t.date)],
+);
+
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: id(),
+    userId: owner(),
+    category: text("category").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [uniqueIndex("budgets_user_category").on(t.userId, t.category)],
 );
 
 export type User = typeof users.$inferSelect;

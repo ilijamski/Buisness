@@ -19,6 +19,7 @@ const dataTables = [
   schema.goals,
   schema.notes,
   schema.transactions,
+  schema.budgets,
 ] as const;
 
 export const updateProfile = userAction(

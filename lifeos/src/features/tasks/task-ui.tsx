@@ -1,11 +1,11 @@
 "use client";
 
-import { CalendarDays, Check, CircleAlert, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
+import { CalendarDays, Check, CircleAlert, Repeat, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
 import { useOptimistic } from "react";
 import { FormModal } from "@/components/ui/modal";
 import { Badge, Dot, Field, type BadgeTone } from "@/components/ui/primitives";
-import { useAction } from "@/components/ui/toast";
-import { PRIORITIES, PRIORITY_LABEL, slotVar, TASK_STATUSES, TASK_STATUS_LABEL, type Priority, type TaskStatus } from "@/lib/constants";
+import { useAction, useToast } from "@/components/ui/toast";
+import { PRIORITIES, PRIORITY_LABEL, REPEAT_LABEL, slotVar, TASK_REPEATS, TASK_STATUSES, TASK_STATUS_LABEL, type Priority, type TaskRepeat, type TaskStatus } from "@/lib/constants";
 import { formatRelative } from "@/lib/dates";
 import { cn } from "@/lib/format";
 import { deleteTask, saveTask, setTaskStatus } from "./actions";
@@ -39,6 +39,14 @@ export function DueBadge({ date, today, done }: { date: string; today: string; d
       {overdue ? `Überfällig · ${formatRelative(date, today)}` : formatRelative(date, today)}
     </Badge>
   );
+}
+
+/** Meldung, wann die nächste Ausgabe einer wiederkehrenden Aufgabe fällig ist. */
+export function useNextNotice(today: string) {
+  const toast = useToast();
+  return (result: { next: string | null }) => {
+    if (result.next) toast.success(`Nächste Wiederholung: ${formatRelative(result.next, today)}`);
+  };
 }
 
 export function Checkbox({ checked, onChange, label, color }: { checked: boolean; onChange: () => void; label: string; color?: string }) {
@@ -76,11 +84,12 @@ export function TaskItem({
   showProject?: boolean;
 }) {
   const { run } = useAction();
+  const notice = useNextNotice(today);
   const [status, setStatus] = useOptimistic(task.status);
   const done = status === "done";
   const toggle = () => {
     const next = done ? "todo" : "done";
-    run(() => setTaskStatus({ id: task.id, status: next }), { optimistic: () => setStatus(next) });
+    run(() => setTaskStatus({ id: task.id, status: next }), { optimistic: () => setStatus(next), onSuccess: notice });
   };
 
   return (
@@ -110,6 +119,12 @@ export function TaskItem({
           {!done && task.priority !== "medium" ? <PriorityBadge priority={task.priority} /> : null}
           {status === "in_progress" ? <Badge tone="strong">In Arbeit</Badge> : null}
           {task.dueDate ? <DueBadge date={task.dueDate} today={today} done={done} /> : null}
+          {task.repeat !== "none" ? (
+            <Badge>
+              <Repeat size={12} />
+              {REPEAT_LABEL[task.repeat as TaskRepeat] ?? "Wiederholt"}
+            </Badge>
+          ) : null}
           {showProject && task.projectName ? (
             <Badge>
               <Dot color={slotVar(task.projectColor ?? 0)} />
@@ -129,14 +144,17 @@ export function TaskDialog({
   task,
   projects,
   defaults,
+  today,
 }: {
   open: boolean;
   onClose: () => void;
   task?: TaskRow | null;
   projects: ProjectOption[];
   defaults?: { projectId?: string; status?: TaskStatus; dueDate?: string };
+  today: string;
 }) {
   const { run, pending } = useAction();
+  const notice = useNextNotice(today);
   return (
     <FormModal
       open={open}
@@ -156,8 +174,15 @@ export function TaskDialog({
               status: data.get("status") as TaskStatus,
               dueDate: String(data.get("dueDate")),
               projectId: String(data.get("projectId")),
+              repeat: data.get("repeat") as TaskRepeat,
             }),
-          { success: task ? "Aufgabe gespeichert" : "Aufgabe angelegt", onSuccess: onClose },
+          {
+            success: task ? "Aufgabe gespeichert" : "Aufgabe angelegt",
+            onSuccess: (result) => {
+              notice(result);
+              onClose();
+            },
+          },
         )
       }
     >
@@ -186,17 +211,26 @@ export function TaskDialog({
         <Field label="Fällig am">
           <input name="dueDate" type="date" className="field" defaultValue={task?.dueDate ?? defaults?.dueDate ?? ""} />
         </Field>
-        <Field label="Projekt">
-          <select name="projectId" className="field" defaultValue={task?.projectId ?? defaults?.projectId ?? ""}>
-            <option value="">Kein Projekt</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+        <Field label="Wiederholen">
+          <select name="repeat" className="field" defaultValue={task?.repeat ?? "none"}>
+            {TASK_REPEATS.map((r) => (
+              <option key={r} value={r}>
+                {REPEAT_LABEL[r]}
               </option>
             ))}
           </select>
         </Field>
       </div>
+      <Field label="Projekt" hint="Wiederkehrende Aufgaben legen beim Erledigen automatisch die nächste an.">
+        <select name="projectId" className="field" defaultValue={task?.projectId ?? defaults?.projectId ?? ""}>
+          <option value="">Kein Projekt</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </Field>
       <Field label="Notizen">
         <textarea name="notes" className="field" rows={3} maxLength={5000} defaultValue={task?.notes} placeholder="Details, Links, nächste Schritte …" />
       </Field>

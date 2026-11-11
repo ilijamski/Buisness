@@ -1,88 +1,150 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, CircleCheck, Clock, MapPin, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CircleCheck, Clock, MapPin, Plus, Repeat } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { FormModal } from "@/components/ui/modal";
+import { FormModal, Modal } from "@/components/ui/modal";
 import { Button, Dot, EmptyState, Field, PageHeader } from "@/components/ui/primitives";
 import { useAction } from "@/components/ui/toast";
-import type { CalendarEvent } from "@/db/schema";
-import { slotVar } from "@/lib/constants";
-import { addDays, addMonths, formatLong, formatMonth, monthOf, rangeDays, startOfWeek } from "@/lib/dates";
+import { EVENT_REPEATS, REPEAT_LABEL, slotVar, type EventRepeat } from "@/lib/constants";
+import { addDays, addMonths, formatLong, formatMonth, formatShort, monthOf, rangeDays, startOfWeek } from "@/lib/dates";
 import { cn } from "@/lib/format";
-import { deleteEvent, saveEvent } from "./actions";
+import { deleteEvent, endSeriesBefore, saveEvent } from "./actions";
+import type { EventOccurrence } from "./queries";
 
-type EventData = Pick<CalendarEvent, "id" | "title" | "description" | "location" | "date" | "startTime" | "endTime" | "color">;
 type DueTask = { id: string; title: string; dueDate: string; done: boolean };
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-const timeLabel = (e: EventData) => (e.startTime ? (e.endTime ? `${e.startTime} – ${e.endTime}` : e.startTime) : "Ganztägig");
+const timeLabel = (e: EventOccurrence) => {
+  const time = e.startTime ? (e.endTime ? `${e.startTime} – ${e.endTime}` : e.startTime) : "Ganztägig";
+  return e.endDate > e.date ? `${formatShort(e.date)} – ${formatShort(e.endDate)}${e.startTime ? ` · ${time}` : ""}` : time;
+};
 
-function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: () => void; event?: EventData | null; date: string }) {
+function EventDialog({ open, onClose, event, date }: { open: boolean; onClose: () => void; event?: EventOccurrence | null; date: string }) {
   const { run, pending } = useAction();
+  const [repeat, setRepeat] = useState<EventRepeat>((event?.repeat as EventRepeat) ?? "none");
+  const [choosing, setChoosing] = useState(false);
+  const isSeries = Boolean(event && event.repeat !== "none");
+  const done = () => {
+    setChoosing(false);
+    onClose();
+  };
   return (
-    <FormModal
-      open={open}
-      onClose={onClose}
-      title={event ? "Termin bearbeiten" : "Neuer Termin"}
-      pending={pending}
-      submitLabel={event ? "Speichern" : "Anlegen"}
-      onDelete={event ? () => run(() => deleteEvent({ id: event.id }), { success: "Termin gelöscht", onSuccess: onClose }) : undefined}
-      onSubmit={(data) =>
-        run(
-          () =>
-            saveEvent({
-              id: event?.id,
-              title: String(data.get("title")),
-              description: String(data.get("description")),
-              location: String(data.get("location")),
-              date: String(data.get("date")),
-              startTime: String(data.get("startTime")),
-              endTime: String(data.get("endTime")),
-              color: Number(data.get("color")),
-            }),
-          { success: event ? "Termin gespeichert" : "Termin angelegt", onSuccess: onClose },
-        )
-      }
-    >
-      <Field label="Titel">
-        <input name="title" className="field" required maxLength={200} autoFocus={!event} defaultValue={event?.title} placeholder="z. B. Abendessen mit Lena" />
-      </Field>
-      <Field label="Datum">
-        <input name="date" type="date" className="field" required defaultValue={event?.date ?? date} />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Beginn" hint="Leer lassen für ganztägig.">
-          <input name="startTime" type="time" className="field" defaultValue={event?.startTime ?? ""} />
+    <>
+      <FormModal
+        open={open && !choosing}
+        onClose={onClose}
+        title={event ? (isSeries ? "Serientermin bearbeiten" : "Termin bearbeiten") : "Neuer Termin"}
+        pending={pending}
+        submitLabel={event ? "Speichern" : "Anlegen"}
+        onDelete={
+          event
+            ? () => (isSeries ? setChoosing(true) : run(() => deleteEvent({ id: event.id }), { success: "Termin gelöscht", onSuccess: onClose }))
+            : undefined
+        }
+        onSubmit={(data) =>
+          run(
+            () =>
+              saveEvent({
+                id: event?.id,
+                title: String(data.get("title")),
+                description: String(data.get("description")),
+                location: String(data.get("location")),
+                date: String(data.get("date")),
+                endDate: String(data.get("endDate")),
+                startTime: String(data.get("startTime")),
+                endTime: String(data.get("endTime")),
+                repeat,
+                repeatUntil: String(data.get("repeatUntil") ?? ""),
+                color: Number(data.get("color")),
+              }),
+            { success: event ? "Termin gespeichert" : "Termin angelegt", onSuccess: onClose },
+          )
+        }
+      >
+        {isSeries ? (
+          <p className="flex items-start gap-2 rounded-[10px] border border-line bg-white/[0.03] px-3 py-2.5 text-[13px] text-ink-2">
+            <Repeat size={15} className="mt-0.5 shrink-0 text-accent" />
+            Änderungen gelten für alle Termine dieser Serie.
+          </p>
+        ) : null}
+        <Field label="Titel">
+          <input name="title" className="field" required maxLength={200} autoFocus={!event} defaultValue={event?.title} placeholder="z. B. Abendessen mit Lena" />
         </Field>
-        <Field label="Ende">
-          <input name="endTime" type="time" className="field" defaultValue={event?.endTime ?? ""} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={repeat === "none" ? "Datum" : "Erster Termin"}>
+            <input name="date" type="date" className="field" required defaultValue={event?.baseDate ?? date} />
+          </Field>
+          <Field label="Bis" hint="Nur für mehrtägige Termine.">
+            <input name="endDate" type="date" className="field" defaultValue={event?.baseEndDate ?? ""} />
+          </Field>
+          <Field label="Beginn" hint="Leer lassen für ganztägig.">
+            <input name="startTime" type="time" className="field" defaultValue={event?.startTime ?? ""} />
+          </Field>
+          <Field label="Ende">
+            <input name="endTime" type="time" className="field" defaultValue={event?.endTime ?? ""} />
+          </Field>
+          <Field label="Wiederholen">
+            <select className="field" value={repeat} onChange={(e) => setRepeat(e.target.value as EventRepeat)} aria-label="Wiederholen">
+              {EVENT_REPEATS.map((r) => (
+                <option key={r} value={r}>
+                  {REPEAT_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {repeat !== "none" ? (
+            <Field label="Serie endet am" hint="Leer lassen für unbegrenzt.">
+              <input name="repeatUntil" type="date" className="field" defaultValue={event?.repeatUntil ?? ""} />
+            </Field>
+          ) : null}
+        </div>
+        <Field label="Ort">
+          <input name="location" className="field" maxLength={200} defaultValue={event?.location} placeholder="Optional" />
         </Field>
-      </div>
-      <Field label="Ort">
-        <input name="location" className="field" maxLength={200} defaultValue={event?.location} placeholder="Optional" />
-      </Field>
-      <Field label="Beschreibung">
-        <textarea name="description" className="field" rows={2} maxLength={5000} defaultValue={event?.description} placeholder="Optional" />
-      </Field>
-      <div>
-        <span className="mb-2 block text-[13px] font-medium text-ink-2">Farbe</span>
-        <ColorPicker name="color" defaultValue={event?.color ?? 1} />
-      </div>
-    </FormModal>
+        <Field label="Beschreibung">
+          <textarea name="description" className="field" rows={2} maxLength={5000} defaultValue={event?.description} placeholder="Optional" />
+        </Field>
+        <div>
+          <span className="mb-2 block text-[13px] font-medium text-ink-2">Farbe</span>
+          <ColorPicker name="color" defaultValue={event?.color ?? 1} />
+        </div>
+      </FormModal>
+
+      <Modal open={choosing} onClose={() => setChoosing(false)} title="Serientermin löschen" size="sm">
+        <p className="text-sm text-pretty text-ink-2">
+          „{event?.title}“ wiederholt sich. Was möchtest du löschen?
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button
+            variant="danger"
+            disabled={pending}
+            onClick={() => event && run(() => endSeriesBefore({ id: event.id, date: event.date }), { success: "Folgende Termine gelöscht", onSuccess: done })}
+          >
+            Diesen und alle folgenden
+          </Button>
+          <Button variant="danger" disabled={pending} onClick={() => event && run(() => deleteEvent({ id: event.id }), { success: "Serie gelöscht", onSuccess: done })}>
+            Die ganze Serie
+          </Button>
+          <Button variant="ghost" onClick={() => setChoosing(false)}>
+            Abbrechen
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }
 
-export function CalendarView({ month, today, events, tasks }: { month: string; today: string; events: EventData[]; tasks: DueTask[] }) {
-  const [selected, setSelected] = useState(monthOf(today) === month ? today : `${month}-01`);
-  const [dialog, setDialog] = useState<{ event: EventData | null } | null>(null);
+export function CalendarView({ month, today, events, tasks, initialDay }: { month: string; today: string; events: EventOccurrence[]; tasks: DueTask[]; initialDay?: string }) {
+  const [selected, setSelected] = useState(initialDay ?? (monthOf(today) === month ? today : `${month}-01`));
+  const [dialog, setDialog] = useState<{ event: EventOccurrence | null } | null>(null);
 
   const gridStart = startOfWeek(`${month}-01`);
   const days = rangeDays(gridStart, 42);
   // Die sechste Zeile nur zeigen, wenn sie noch Tage des Monats enthält.
   const visible = monthOf(days[35]) === month ? days : days.slice(0, 35);
-  const eventsOn = (d: string) => events.filter((e) => e.date === d);
+  const eventsOn = (d: string) => events.filter((e) => e.date <= d && d <= e.endDate);
   const tasksOn = (d: string) => tasks.filter((t) => t.dueDate === d);
   const dayEvents = eventsOn(selected);
   const dayTasks = tasksOn(selected);
@@ -154,7 +216,7 @@ export function CalendarView({ month, today, events, tasks }: { month: string; t
                   {/* Desktop: Einträge als Zeilen */}
                   <span className={cn("hidden flex-col gap-0.5 md:flex", !inMonth && "opacity-50")}>
                     {evs.slice(0, 2).map((e) => (
-                      <span key={e.id} className="flex items-center gap-1.5 truncate rounded px-1 text-[11px] leading-[18px] text-ink-2" style={{ background: `color-mix(in srgb, ${slotVar(e.color)} 16%, transparent)` }}>
+                      <span key={e.key} className="flex items-center gap-1.5 truncate rounded px-1 text-[11px] leading-[18px] text-ink-2" style={{ background: `color-mix(in srgb, ${slotVar(e.color)} 16%, transparent)` }}>
                         <Dot color={slotVar(e.color)} className="!size-1.5" />
                         <span className="truncate">{e.title}</span>
                       </span>
@@ -170,7 +232,7 @@ export function CalendarView({ month, today, events, tasks }: { month: string; t
                   {/* Smartphone: Punkte */}
                   <span className="flex justify-center gap-0.5 md:hidden">
                     {evs.slice(0, 3).map((e) => (
-                      <Dot key={e.id} color={slotVar(e.color)} className="!size-1" />
+                      <Dot key={e.key} color={slotVar(e.color)} className="!size-1" />
                     ))}
                     {tks.length ? <span className="size-1 rounded-full bg-white/40" /> : null}
                   </span>
@@ -194,7 +256,7 @@ export function CalendarView({ month, today, events, tasks }: { month: string; t
           {dayEvents.length || dayTasks.length ? (
             <ul key={selected} className="stagger space-y-2">
               {dayEvents.map((e) => (
-                <li key={e.id}>
+                <li key={e.key}>
                   <button
                     type="button"
                     onClick={() => setDialog({ event: e })}
@@ -208,6 +270,12 @@ export function CalendarView({ month, today, events, tasks }: { month: string; t
                           <Clock size={12} />
                           {timeLabel(e)}
                         </span>
+                        {e.repeat !== "none" ? (
+                          <span className="flex items-center gap-1">
+                            <Repeat size={12} />
+                            {REPEAT_LABEL[e.repeat as EventRepeat] ?? "Serie"}
+                          </span>
+                        ) : null}
                         {e.location ? (
                           <span className="flex min-w-0 items-center gap-1">
                             <MapPin size={12} className="shrink-0" />
@@ -235,7 +303,7 @@ export function CalendarView({ month, today, events, tasks }: { month: string; t
         </section>
       </div>
 
-      <EventDialog open={dialog !== null} onClose={() => setDialog(null)} event={dialog?.event} date={selected} />
+      <EventDialog key={dialog?.event?.key ?? "new"} open={dialog !== null} onClose={() => setDialog(null)} event={dialog?.event} date={selected} />
     </>
   );
 }

@@ -129,10 +129,10 @@ function Editor({ note, onBack, onDelete }: { note: NoteView; onBack: () => void
   );
 }
 
-export function NotesView({ notes }: { notes: NoteView[] }) {
+export function NotesView({ notes, initialId }: { notes: NoteView[]; initialId?: string }) {
   const { run, pending } = useAction();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? null);
+  const [mobileOpen, setMobileOpen] = useState(Boolean(initialId));
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState(false);
 

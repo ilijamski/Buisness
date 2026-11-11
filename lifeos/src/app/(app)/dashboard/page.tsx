@@ -123,14 +123,14 @@ export default async function DashboardPage() {
               {upcoming.length ? (
                 <ul className="space-y-1">
                   {upcoming.map((e) => (
-                    <li key={e.id} className="flex items-center gap-3 py-1.5">
+                    <li key={e.key} className="flex items-center gap-3 py-1.5">
                       <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: slotVar(e.color) }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-ink">{e.title}</span>
                         <span className="flex items-center gap-1.5 text-xs text-muted">
                           {e.startTime ? <Clock size={11} /> : <CalendarDays size={11} />}
-                          {formatRelative(e.date, today)}
-                          {e.startTime ? ` · ${e.startTime}` : " · ganztägig"}
+                          {e.date < today ? `Läuft bis ${formatRelative(e.endDate, today)}` : formatRelative(e.date, today)}
+                          {e.date < today ? "" : e.startTime ? ` · ${e.startTime}` : " · ganztägig"}
                         </span>
                       </span>
                     </li>

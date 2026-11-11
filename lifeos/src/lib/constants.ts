@@ -16,6 +16,18 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   done: "Erledigt",
 };
 
+export const TASK_REPEATS = ["none", "daily", "weekly", "monthly"] as const;
+export type TaskRepeat = (typeof TASK_REPEATS)[number];
+export const EVENT_REPEATS = ["none", "daily", "weekly", "monthly", "yearly"] as const;
+export type EventRepeat = (typeof EVENT_REPEATS)[number];
+export const REPEAT_LABEL: Record<EventRepeat, string> = {
+  none: "Nie",
+  daily: "Täglich",
+  weekly: "Wöchentlich",
+  monthly: "Monatlich",
+  yearly: "Jährlich",
+};
+
 export const PROJECT_STATUSES = ["active", "paused", "done"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {

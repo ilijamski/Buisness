@@ -41,7 +41,12 @@ export function Modal({
         "max-h-[92dvh] sm:max-h-[86dvh]",
         size === "sm" ? "sm:max-w-sm" : "sm:max-w-lg",
       )}
-      onClose={onClose}
+      // Nur Escape meldet sich hier; das Schließen selbst läuft über die `open`-Eigenschaft.
+      // (Das native close-Ereignis feuert auch beim programmatischen Schließen.)
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}

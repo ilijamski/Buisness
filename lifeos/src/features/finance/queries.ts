@@ -3,7 +3,14 @@ import { and, between, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db/client";
 import { addMonths, monthBounds } from "@/lib/dates";
 
-const { transactions } = schema;
+const { transactions, budgets } = schema;
+
+/** Monatsbudgets als Zuordnung Kategorie → Cent. */
+export async function listBudgets(userId: string): Promise<Record<string, number>> {
+  const db = await getDb();
+  const rows = await db.select().from(budgets).where(eq(budgets.userId, userId));
+  return Object.fromEntries(rows.map((b) => [b.category, b.amountCents]));
+}
 
 export async function listTransactions(userId: string, month: string) {
   const db = await getDb();

@@ -10,7 +10,7 @@ import { Badge, Button, EmptyState, Field, IconButton, PageHeader, ProgressBar }
 import { useAction } from "@/components/ui/toast";
 import { setTaskStatus } from "@/features/tasks/actions";
 import type { TaskRow } from "@/features/tasks/queries";
-import { Checkbox, DueBadge, PriorityBadge, TaskDialog } from "@/features/tasks/task-ui";
+import { Checkbox, DueBadge, PriorityBadge, TaskDialog, useNextNotice } from "@/features/tasks/task-ui";
 import {
   PRIORITY_RANK,
   PROJECT_STATUSES,
@@ -190,6 +190,7 @@ export function ProjectsView({ projects, today }: { projects: ProjectRow[]; toda
 export function ProjectBoard({ project, tasks, today }: { project: ProjectData; tasks: TaskRow[]; today: string }) {
   const router = useRouter();
   const { run } = useAction();
+  const notice = useNextNotice(today);
   const [board, moveTask] = useOptimistic(tasks, (state, move: { id: string; status: string }) =>
     state.map((t) => (t.id === move.id ? { ...t, status: move.status } : t)),
   );
@@ -200,7 +201,7 @@ export function ProjectBoard({ project, tasks, today }: { project: ProjectData; 
 
   const move = (id: string, status: TaskStatus) => {
     if (board.find((t) => t.id === id)?.status === status) return;
-    run(() => setTaskStatus({ id, status }), { optimistic: () => moveTask({ id, status }) });
+    run(() => setTaskStatus({ id, status }), { optimistic: () => moveTask({ id, status }), onSuccess: notice });
   };
   const done = board.filter((t) => t.status === "done").length;
   const ratio = board.length ? done / board.length : 0;
@@ -328,6 +329,7 @@ export function ProjectBoard({ project, tasks, today }: { project: ProjectData; 
 
       <ProjectDialog open={editProject} onClose={() => setEditProject(false)} project={project} onDeleted={() => router.push("/projekte")} />
       <TaskDialog
+        today={today}
         open={dialog !== null}
         onClose={() => setDialog(null)}
         task={dialog?.task}

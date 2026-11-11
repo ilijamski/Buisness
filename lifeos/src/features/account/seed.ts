@@ -27,7 +27,7 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
     ])
     .returning({ id: schema.projects.id });
 
-  type TaskSeed = [title: string, priority: string, status: string, due: number | null, project: string | null, doneAgo?: number];
+  type TaskSeed = [title: string, priority: string, status: string, due: number | null, project: string | null, doneAgo?: number, repeat?: string];
   const taskSeeds: TaskSeed[] = [
     ["Steuererklärung abgeben", "urgent", "todo", 0, null],
     ["Angebot für Kundin Weber schreiben", "high", "in_progress", 0, null],
@@ -35,6 +35,8 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
     ["Geschenk für Mama besorgen", "medium", "todo", 3, null],
     ["Fahrrad zur Inspektion bringen", "low", "todo", 6, null],
     ["Versicherungen vergleichen", "low", "todo", null, null],
+    ["Wohnung putzen", "medium", "todo", 2, null, undefined, "weekly"],
+    ["Haushaltsbuch prüfen", "low", "todo", 12, null, undefined, "monthly"],
     ["Stromzähler ablesen", "high", "todo", -2, null],
     ["Wireframes für Startseite", "high", "done", -6, web.id, 5],
     ["Farbpalette und Typografie festlegen", "medium", "done", -4, web.id, 4],
@@ -62,13 +64,14 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
     for (let i = 0; i < n; i++) doneTasks.push([pick(doneTitles), pick(["low", "medium", "medium", "high"]), "done", -d, null, d]);
   }
   await db.insert(schema.tasks).values(
-    [...taskSeeds, ...doneTasks].map(([title, priority, status, due, projectId, doneAgo], i) => ({
+    [...taskSeeds, ...doneTasks].map(([title, priority, status, due, projectId, doneAgo, repeat], i) => ({
       userId,
       title,
       priority,
       status,
       dueDate: due === null ? null : addDays(today, due),
       projectId,
+      repeat: repeat ?? "none",
       completedOn: status === "done" ? addDays(today, -(doneAgo ?? 0)) : null,
       createdAt: past(90 - Math.min(i, 89)),
     })),
@@ -76,17 +79,18 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
 
   const week = startOfWeek(today);
   await db.insert(schema.events).values([
-    { userId, title: "Team-Weekly", date: today, startTime: "09:30", endTime: "10:15", location: "Videocall", color: 1 },
+    // Serien beginnen in der Vergangenheit, damit auch Rückblicke gefüllt sind.
+    { userId, title: "Team-Weekly", date: addDays(week, -55), startTime: "09:30", endTime: "10:15", location: "Videocall", color: 1, repeat: "weekly" },
+    { userId, title: "Sprachkurs", date: addDays(week, -55), startTime: "19:00", endTime: "20:30", color: 3, repeat: "weekly", repeatUntil: addDays(week, 85) },
+    { userId, title: "Miete überweisen", date: `${addMonths(monthOf(today), -3)}-01`, color: 4, repeat: "monthly" },
+    { userId, title: "Geburtstag Mama", date: addDays(today, 5 - 365 * 3), color: 5, repeat: "yearly" },
     { userId, title: "Mittagessen mit Jonas", date: today, startTime: "12:30", endTime: "13:30", location: "Café Luise", color: 3 },
     { userId, title: "Yoga", date: today, startTime: "18:30", endTime: "19:45", color: 5 },
     { userId, title: "Zahnarzt", date: addDays(today, 2), startTime: "08:00", endTime: "08:45", color: 8 },
     { userId, title: "Kundentermin Weber", date: addDays(today, 3), startTime: "14:00", endTime: "15:30", location: "Büro Mitte", color: 1 },
-    { userId, title: "Geburtstag Mama", date: addDays(today, 5), color: 4 },
+    { userId, title: "Kurzurlaub an der Ostsee", date: addDays(today, 16), endDate: addDays(today, 19), location: "Rügen", color: 6 },
     { userId, title: "Wohnungsübergabe", date: addDays(today, 9), startTime: "11:00", endTime: "12:00", location: "Hamburg", color: 2 },
     { userId, title: "Konzert", date: addDays(today, 12), startTime: "20:00", endTime: "23:00", color: 7 },
-    { userId, title: "Team-Weekly", date: addDays(week, 7), startTime: "09:30", endTime: "10:15", location: "Videocall", color: 1 },
-    { userId, title: "Sprachkurs", date: addDays(week, 1), startTime: "19:00", endTime: "20:30", color: 3 },
-    { userId, title: "Sprachkurs", date: addDays(week, 8), startTime: "19:00", endTime: "20:30", color: 3 },
     { userId, title: "Laufgruppe", date: addDays(week, -2), startTime: "10:00", endTime: "11:00", color: 6 },
     { userId, title: "Steuerberater", date: addDays(today, -4), startTime: "16:00", endTime: "17:00", color: 8 },
   ]);
@@ -153,4 +157,13 @@ export async function seedDemoData(db: Db, userId: string, today: string) {
     if (rand() > 0.6) add("expense", "health", "Apotheke", 8 + rand() * 30, 9 + Math.floor(rand() * 15));
   }
   await db.insert(schema.transactions).values(txs);
+  await db
+    .insert(schema.budgets)
+    .values([
+      { userId, category: "food", amountCents: 45000 },
+      { userId, category: "leisure", amountCents: 20000 },
+      { userId, category: "shopping", amountCents: 15000 },
+      { userId, category: "mobility", amountCents: 12000 },
+    ])
+    .onConflictDoNothing();
 }

@@ -1,9 +1,10 @@
 import "server-only";
 import { and, between, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db/client";
+import { listEvents } from "@/features/calendar/queries";
 import { addDays, rangeDays } from "@/lib/dates";
 
-const { tasks, habits, habitLogs, transactions, events } = schema;
+const { tasks, habits, habitLogs, transactions } = schema;
 
 export type DayStat = {
   date: string;
@@ -62,10 +63,8 @@ export async function weeklyStats(userId: string, weekStart: string, today: stri
       .select({ date: transactions.date, type: transactions.type, amount: transactions.amountCents })
       .from(transactions)
       .where(and(eq(transactions.userId, userId), between(transactions.date, from, to))),
-    db
-      .select({ date: events.date })
-      .from(events)
-      .where(and(eq(events.userId, userId), between(events.date, from, to))),
+    // Jedes Vorkommen zählt an seinem ersten Tag (Serientermine also einmal pro Wiederholung).
+    listEvents(userId, from, to),
   ]);
 
   const count = (rows: { date: string | null }[]) => {

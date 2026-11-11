@@ -23,17 +23,18 @@ auf dem leeren Dashboard „Beispieldaten laden“ wählen – fertig.
 | Bereich | Was er kann |
 | --- | --- |
 | Dashboard | Tagesübersicht: fällige Aufgaben, Termine, Gewohnheiten zum Abhaken, Monatssaldo, Zielfortschritt, Wochenverlauf |
-| Aufgaben | Prioritäten, Status, Fälligkeit, Projektzuordnung, Schnellerfassung, Filter und Suche |
-| Kalender | Monatsansicht mit Terminen und fälligen Aufgaben, Tagesagenda |
+| Aufgaben | Prioritäten, Status, Fälligkeit, Projektzuordnung, Schnellerfassung, Filter und Suche; wiederkehrende Aufgaben legen beim Erledigen die nächste an |
+| Kalender | Monatsansicht mit Terminen und fälligen Aufgaben, Tagesagenda; mehrtägige Termine und Serien (täglich, wöchentlich, monatlich, jährlich, optional mit Enddatum) |
 | Projekte | Kanban-Board (Drag & Drop) mit Fortschritt je Projekt |
 | Ziele | Messbare Ziele mit Zielwert, Einheit, Termin und Fortschrittsring |
 | Gewohnheiten | 7-Tage-Raster, Serien, Wochenziel, Heatmap über 18 Wochen |
 | Notizen | Zweispaltiger Editor mit automatischem Speichern, Anheften, Suche |
-| Finanzen | Einnahmen/Ausgaben, Kategorien, Sparquote, 6-Monats-Verlauf |
+| Finanzen | Einnahmen/Ausgaben, Kategorien, Sparquote, 6-Monats-Verlauf, Monatsbudgets je Kategorie |
 | Statistiken | Wochenbericht in Worten, Vergleich zur Vorwoche, 12-Wochen-Trends, Tabellenansicht |
 | Einstellungen | Profil, Passwort, JSON-Export, Inhalte oder Konto löschen |
 
-Überall erreichbar: Befehlspalette mit `⌘K` / `Strg+K` (Bereich öffnen oder Aufgabe anlegen).
+Überall erreichbar: Befehlspalette mit `⌘K` / `Strg+K` – durchsucht Aufgaben, Notizen, Termine,
+Projekte und Ziele, öffnet Bereiche oder legt direkt eine Aufgabe an.
 
 ## Architektur
 
@@ -63,6 +64,8 @@ Regeln, die überall gelten:
 - Kalendertage werden als `YYYY-MM-DD` ohne Zeitzone gespeichert; „heute“ richtet sich nach
   der Zeitzone des Browsers (Cookie `lifeos_tz`).
 - Geldbeträge sind ganze Cent, nie Fließkommazahlen.
+- Serientermine werden als **eine** Zeile gespeichert und beim Lesen zu Vorkommen aufgefächert
+  (`src/features/calendar/recurrence.ts`, mit Unit-Tests).
 
 ## Datenbank
 
@@ -99,7 +102,7 @@ Dateisystem nicht beschreibbar ist – die App meldet das mit einer klaren Fehle
 ## Tests
 
 ```bash
-npm test            # Unit-Tests der Datumslogik
+npm test            # Unit-Tests der Datums- und Serienlogik
 npm run typecheck
 npm run lint
 
@@ -114,6 +117,8 @@ auf dem Smartphone.
 ## Bekannte Grenzen
 
 - Kein „Passwort vergessen“ per E-Mail und keine E-Mail-Bestätigung (es ist kein Mailversand angebunden).
-- Termine sind eintägig; Serientermine gibt es nicht.
+- Serientermine lassen sich nur als Ganzes ändern. Löschen geht für die ganze Serie oder „diesen und
+  alle folgenden“ – ein einzelnes Vorkommen mitten aus einer Serie herauszunehmen geht nicht.
+- Budgets gelten für jeden Monat gleich; abweichende Budgets einzelner Monate gibt es nicht.
 - Währung ist fest Euro, Oberfläche fest Deutsch.
 - Die Anmeldebremse zählt pro Serverinstanz; bei mehreren Instanzen gehört sie in die Datenbank.

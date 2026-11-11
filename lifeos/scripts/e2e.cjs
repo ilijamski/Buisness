@@ -5,6 +5,12 @@ const BASE = process.env.BASE_URL || 'http://localhost:3000';
 const SHOTS = process.env.SHOTS_DIR; // optional: Ordner für Screenshots
 const email = `test${Date.now()}@example.com`;
 const results = [];
+// Alle Datumsangaben relativ zu heute, damit der Lauf an jedem Tag funktioniert.
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const day = (offset) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + offset); return d; };
+const isoWeek = (date) => { const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); return Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); };
+const nextMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); })();
 const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  ${name} ${extra}`); };
 (async () => {
   const browser = await chromium.launch();
@@ -59,7 +65,7 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   ok('quick add task', true);
   await page.getByText('E2E Schnellaufgabe').click();
   await page.locator('dialog[open] select[name=priority]').selectOption('urgent');
-  await page.locator('dialog[open] input[name=dueDate]').fill('2026-11-12');
+  await page.locator('dialog[open] input[name=dueDate]').fill(iso(day(1)));
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Aufgabe gespeichert');
   ok('edit task', await page.locator('section', { hasText: 'E2E Schnellaufgabe' }).getByText('Dringend').count() > 0);
@@ -78,6 +84,21 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.waitForTimeout(400);
   ok('delete task', await page.getByText('E2E Schnellaufgabe').count() === 0);
 
+  // wiederkehrende Aufgabe: Erledigen legt die nächste an
+  await page.getByRole('button', { name: 'Neue Aufgabe' }).click();
+  await page.locator('dialog[open] input[name=title]').fill('E2E Wiederkehrend');
+  await page.locator('dialog[open] input[name=dueDate]').fill(iso(day(0)));
+  await page.locator('dialog[open] select[name=repeat]').selectOption('weekly');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Aufgabe angelegt');
+  await page.getByRole('checkbox', { name: '„E2E Wiederkehrend“ erledigen' }).click();
+  await page.getByText(/Nächste Wiederholung/).waitFor({ timeout: 8000 });
+  await page.waitForTimeout(500);
+  const nextTask = page.locator('div[role=button]', { hasText: 'E2E Wiederkehrend' });
+  const spawned = (await (await page.request.get(BASE + '/api/export')).json()).tasks.filter((t) => t.title === 'E2E Wiederkehrend');
+  ok('recurring task spawns next occurrence', await nextTask.count() === 1 && await nextTask.getByText('Wöchentlich').count() === 1
+    && spawned.length === 2 && spawned.some((t) => t.status === 'todo' && t.dueDate === iso(day(7)) && t.repeat === 'weekly'));
+
   // --- Calendar
   await page.goto(BASE + '/kalender');
   await page.waitForTimeout(600);
@@ -93,9 +114,47 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Termin angelegt');
   ok('create event', await page.getByText('E2E Termin').count() > 0);
+  // Serientermin: wöchentlich, erscheint in späteren Wochen am selben Wochentag
+  const agenda = page.locator('section[aria-live]');
+  const openDay = async (offset) => { await page.goto(`${BASE}/kalender?d=${iso(day(offset))}`); await agenda.waitFor(); await page.waitForTimeout(300); };
+  await page.getByRole('button', { name: 'Neuer Termin' }).click();
+  await page.locator('dialog[open] input[name=title]').fill('E2E Serie');
+  await page.locator('dialog[open]').getByLabel('Wiederholen').selectOption('weekly');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Termin angelegt');
+  await openDay(14);
+  ok('weekly series occurs on later weeks', await agenda.getByText('E2E Serie').count() === 1);
+  await openDay(13);
+  ok('weekly series absent on other weekdays', await agenda.getByText('E2E Serie').count() === 0);
+  // Mehrtägiger Termin
+  await page.getByRole('button', { name: 'Neuer Termin' }).click();
+  await page.locator('dialog[open] input[name=title]').fill('E2E Reise');
+  await page.locator('dialog[open] input[name=date]').fill(iso(day(20)));
+  await page.locator('dialog[open] input[name=endDate]').fill(iso(day(19)));
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Der letzte Tag darf nicht vor dem ersten liegen.');
+  await page.locator('dialog[open] input[name=endDate]').fill(iso(day(22)));
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Termin angelegt');
+  await openDay(21);
+  ok('multi-day event covers middle day', await agenda.getByText('E2E Reise').count() === 1);
+  await shot('05b-kalender-serien');
+  await openDay(23);
+  ok('multi-day event ends on last day', await agenda.getByText('E2E Reise').count() === 0);
+  // „Diesen und alle folgenden“ löschen: frühere Termine bleiben
+  await openDay(14);
+  await agenda.getByText('E2E Serie').click();
+  await page.locator('dialog[open]').getByRole('button', { name: 'Löschen' }).click();
+  await page.getByRole('button', { name: 'Diesen und alle folgenden' }).click();
+  await toast('Folgende Termine gelöscht');
+  await openDay(14);
+  const gone = await agenda.getByText('E2E Serie').count() === 0;
+  await openDay(7);
+  ok('delete this-and-following keeps earlier occurrences', gone && await agenda.getByText('E2E Serie').count() === 1);
+  await page.goto(BASE + '/kalender');
   await page.getByRole('link', { name: 'Nächster Monat' }).click();
-  await page.waitForURL('**m=2026-12');
-  ok('calendar month nav', await page.getByText('Dezember 2026').count() > 0);
+  await page.waitForURL(`**m=${iso(nextMonth).slice(0, 7)}`);
+  ok('calendar month nav', await page.getByText(new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(nextMonth)).count() > 0);
 
   // --- Goals
   await page.goto(BASE + '/ziele');
@@ -149,6 +208,14 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Buchung angelegt');
   ok('create transaction with 1.234,56', await page.getByText('− 1.234,56 €').count() > 0);
+  // Budgets
+  await page.getByRole('button', { name: 'Bearbeiten' }).click();
+  await page.locator('dialog[open] input[name=housing]').fill('1.000');
+  await page.locator('dialog[open] button[type=submit]').click();
+  await toast('Budgets gespeichert');
+  await page.waitForTimeout(400);
+  ok('budget shows overspend', await page.getByText(/über dem Budget/).count() > 0);
+  await shot('09c-budgets');
   // chart hover
   const bars = page.getByRole('img', { name: /Einnahmen und Ausgaben je Monat/ });
   const bb = await bars.boundingBox();
@@ -192,7 +259,7 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   ok('weekly report text', await page.getByText(/In dieser Woche hast du bisher/).count() > 0);
   await page.getByRole('link', { name: 'Vorherige Woche' }).click();
   await page.waitForURL('**w=*');
-  ok('stats week nav', await page.getByText(/KW 45/).count() > 0);
+  ok('stats week nav', await page.getByText(new RegExp(`KW ${isoWeek(day(-7))} `)).count() > 0);
 
   // --- Command palette
   await page.keyboard.press('Control+k');
@@ -202,6 +269,20 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.keyboard.press('Enter');
   await page.waitForURL('**/finanzen');
   ok('command palette navigation', true);
+
+  // Suche über Inhalte
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('Suchen oder Aufgabe anlegen').fill('deep work');
+  await page.getByRole('option', { name: /Buchnotizen: Deep Work/ }).waitFor({ timeout: 8000 });
+  await shot('13b-suche');
+  await page.getByRole('option', { name: /Buchnotizen: Deep Work/ }).click();
+  await page.waitForURL('**/notizen?id=*');
+  ok('search opens found note', (await page.getByLabel('Titel der Notiz').inputValue()) === 'Buchnotizen: Deep Work');
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('Suchen oder Aufgabe anlegen').fill('100%_');
+  await page.waitForTimeout(900);
+  ok('search treats % and _ literally', await page.getByRole('option').count() === 1);
+  await page.keyboard.press('Escape');
 
   // --- Settings
   await page.goto(BASE + '/einstellungen');

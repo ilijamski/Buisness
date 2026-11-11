@@ -17,6 +17,7 @@ export async function listTasks(userId: string) {
       status: tasks.status,
       dueDate: tasks.dueDate,
       completedOn: tasks.completedOn,
+      repeat: tasks.repeat,
       projectId: tasks.projectId,
       projectName: projects.name,
       projectColor: projects.color,

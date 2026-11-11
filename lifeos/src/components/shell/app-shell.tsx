@@ -1,10 +1,11 @@
 "use client";
 
-import { CornerDownLeft, Ellipsis, LogOut, Plus, Search } from "lucide-react";
+import { CalendarDays, CircleCheck, CornerDownLeft, Ellipsis, FolderKanban, LogOut, NotebookPen, Plus, Search, Target } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { logout } from "@/features/auth/actions";
+import { searchAll, type SearchHit } from "@/features/search/actions";
 import { saveTask } from "@/features/tasks/actions";
 import { cn } from "@/lib/format";
 import { Modal } from "../ui/modal";
@@ -182,13 +183,16 @@ function MobileNav({ onSearch }: { onSearch: () => void }) {
   );
 }
 
-/** Befehlspalette (⌘K): zu Bereichen springen oder direkt eine Aufgabe anlegen. */
+const HIT_ICON = { task: CircleCheck, note: NotebookPen, event: CalendarDays, project: FolderKanban, goal: Target } as const;
+
+/** Befehlspalette (⌘K): Inhalte durchsuchen, zu Bereichen springen oder direkt eine Aufgabe anlegen. */
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const ref = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const { run, pending } = useAction();
+  const [found, setFound] = useState<{ q: string; hits: SearchHit[] }>({ q: "", hits: [] });
 
   useEffect(() => {
     const el = ref.current;
@@ -204,6 +208,23 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
   };
 
   const q = query.trim();
+  // Kurz warten, bis die Eingabe ruht; veraltete Antworten werden verworfen.
+  useEffect(() => {
+    if (q.length < 2) return;
+    let stale = false;
+    const timer = setTimeout(() => {
+      searchAll(q)
+        .then((hits) => {
+          if (!stale) setFound({ q, hits });
+        })
+        .catch(() => {});
+    }, 180);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [q]);
+  const hits = q.length >= 2 && found.q === q ? found.hits : null;
   const items = useMemo(() => {
     const pages = NAV.filter((n) => n.label.toLowerCase().includes(q.toLowerCase())).map((n) => ({
       key: n.href,
@@ -214,6 +235,13 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
     }));
     if (!q) return pages;
     return [
+      ...(hits ?? []).map((h) => ({
+        key: `${h.kind}:${h.id}`,
+        label: h.title,
+        hint: h.detail,
+        icon: HIT_ICON[h.kind],
+        run: () => router.push(h.href),
+      })),
       ...pages,
       {
         key: "new-task",
@@ -223,7 +251,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
         run: () => run(() => saveTask({ title: q, notes: "" }), { success: "Aufgabe angelegt" }),
       },
     ];
-  }, [q, router, run]);
+  }, [q, router, run, hits]);
   const selected = Math.min(index, items.length - 1);
 
   const choose = (i: number) => {
@@ -238,7 +266,10 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
       ref={ref}
       aria-label="Befehlspalette"
       className="modal m-0 mx-auto mt-[12dvh] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-2xl border border-line-strong bg-raised p-0 text-ink shadow-2xl shadow-black/70"
-      onClose={close}
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) close();
       }}
@@ -267,7 +298,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
                 }
               }}
               maxLength={200}
-              placeholder="Bereich suchen oder neue Aufgabe eintippen …"
+              placeholder="Suchen, Bereich öffnen oder neue Aufgabe eintippen …"
               aria-label="Suchen oder Aufgabe anlegen"
               className="h-13 w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted"
             />
@@ -286,11 +317,13 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
                 >
                   <item.icon size={16} className={i === selected ? "text-accent" : "text-muted"} />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {i === selected ? <CornerDownLeft size={14} className="text-muted" /> : <span className="text-xs text-muted">{item.hint}</span>}
+                  <span className="shrink-0 text-xs text-muted">{item.hint}</span>
+                  {i === selected ? <CornerDownLeft size={14} className="shrink-0 text-muted" /> : null}
                 </button>
               </li>
             ))}
           </ul>
+          {q.length >= 2 && hits === null ? <p className="border-t border-line px-5 py-2 text-xs text-muted">Sucht …</p> : null}
         </div>
       ) : null}
     </dialog>

@@ -20,7 +20,7 @@ export function NewTaskButton({ projects, today }: { projects: ProjectOption[]; 
         <Plus size={16} />
         Aufgabe
       </Button>
-      <TaskDialog open={open} onClose={() => setOpen(false)} projects={projects} defaults={{ dueDate: today }} />
+      <TaskDialog today={today} open={open} onClose={() => setOpen(false)} projects={projects} defaults={{ dueDate: today }} />
     </>
   );
 }
@@ -34,7 +34,7 @@ export function FocusTasks({ tasks, projects, today }: { tasks: TaskRow[]; proje
           <TaskItem key={task.id} task={task} today={today} onOpen={(t) => setDialog({ task: t })} />
         ))}
       </div>
-      <TaskDialog open={dialog !== null} onClose={() => setDialog(null)} task={dialog?.task} projects={projects} />
+      <TaskDialog today={today} open={dialog !== null} onClose={() => setDialog(null)} task={dialog?.task} projects={projects} />
     </>
   );
 }
@@ -87,7 +87,7 @@ export function Onboarding({ projects, today }: { projects: ProjectOption[]; tod
           </div>
         }
       />
-      <TaskDialog open={open} onClose={() => setOpen(false)} projects={projects} defaults={{ dueDate: today }} />
+      <TaskDialog today={today} open={open} onClose={() => setOpen(false)} projects={projects} defaults={{ dueDate: today }} />
     </div>
   );
 }

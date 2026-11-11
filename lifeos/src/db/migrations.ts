@@ -123,4 +123,20 @@ export const migrations: { id: number; sql: string }[] = [
       create index transactions_user_date_idx on transactions(user_id, date);
     `,
   },
+  {
+    id: 2,
+    sql: `
+      alter table events add column end_date date;
+      alter table events add column repeat text not null default 'none';
+      alter table events add column repeat_until date;
+      alter table tasks add column repeat text not null default 'none';
+      create table budgets (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        category text not null,
+        amount_cents integer not null
+      );
+      create unique index budgets_user_category on budgets(user_id, category);
+    `,
+  },
 ];

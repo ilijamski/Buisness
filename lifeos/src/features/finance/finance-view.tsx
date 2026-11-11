@@ -1,16 +1,16 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Plus, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, CircleAlert, Plus, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { BarChart, DonutChart, Legend } from "@/components/charts";
 import { FormModal } from "@/components/ui/modal";
-import { Button, Card, CardHeader, Dot, EmptyState, Field, PageHeader, Segmented, StatTile } from "@/components/ui/primitives";
+import { Button, Card, CardHeader, Dot, EmptyState, Field, PageHeader, ProgressBar, Segmented, StatTile } from "@/components/ui/primitives";
 import { useAction } from "@/components/ui/toast";
 import { categoryMeta, EXPENSE_CATEGORIES, INCOME_CATEGORIES, slotVar } from "@/lib/constants";
 import { addMonths, formatMonth, formatMonthShort, formatRelative } from "@/lib/dates";
 import { cn, formatMoney, formatPercent } from "@/lib/format";
-import { deleteTransaction, saveTransaction } from "./actions";
+import { deleteTransaction, saveBudgets, saveTransaction } from "./actions";
 import type { MonthTotals } from "./queries";
 
 export type TxData = { id: string; type: string; amountCents: number; category: string; description: string; date: string };
@@ -20,10 +20,12 @@ const FLOW_SERIES = [
   { name: "Ausgaben", color: "var(--color-s2)" },
 ];
 
-/** "1.234,56" → 123456 Cent; NaN bei ungültiger Eingabe. */
+/** "1.234,56" → 123456 Cent, "1.000" → 100000 Cent; NaN bei ungültiger Eingabe. */
 function parseCents(input: string): number {
   const cleaned = input.replace(/[€\s]/g, "");
-  const normalized = cleaned.includes(",") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
+  // Deutsche Schreibweise: Punkt als Tausendertrenner ("1.000", "1.234,56"), Komma als Dezimalzeichen.
+  const thousands = cleaned.includes(",") || /^\d{1,3}(\.\d{3})+$/.test(cleaned);
+  const normalized = thousands ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
   return /^\d+(\.\d{1,2})?$/.test(normalized) ? Math.round(Number(normalized) * 100) : NaN;
 }
 
@@ -97,8 +99,60 @@ function TransactionDialog({ open, onClose, tx, defaultDate }: { open: boolean; 
   );
 }
 
-export function FinanceView({ month, today, transactions, history }: { month: string; today: string; transactions: TxData[]; history: MonthTotals[] }) {
+const centsToInput = (cents: number) => (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(".", ","));
+
+function BudgetDialog({ open, onClose, budgets }: { open: boolean; onClose: () => void; budgets: Record<string, number> }) {
+  const { run, pending } = useAction();
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title="Monatsbudgets"
+      pending={pending}
+      onSubmit={(data) =>
+        run(
+          () =>
+            saveBudgets({
+              budgets: EXPENSE_CATEGORIES.map((c) => {
+                const raw = String(data.get(c.key) ?? "").trim();
+                return { category: c.key, amountCents: raw ? parseCents(raw) : null };
+              }),
+            }),
+          { success: "Budgets gespeichert", onSuccess: onClose },
+        )
+      }
+    >
+      <p className="text-sm text-pretty text-muted">Lege fest, wie viel du pro Monat je Kategorie ausgeben möchtest. Leere Felder haben kein Budget.</p>
+      <div className="grid grid-cols-2 gap-3">
+        {EXPENSE_CATEGORIES.map((c) => (
+          <label key={c.key} className="block">
+            <span className="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-ink-2">
+              <Dot color={slotVar(c.color)} />
+              {c.label}
+            </span>
+            <input name={c.key} className="field tabular-nums" inputMode="decimal" placeholder="– €" defaultValue={budgets[c.key] ? centsToInput(budgets[c.key]) : ""} />
+          </label>
+        ))}
+      </div>
+    </FormModal>
+  );
+}
+
+export function FinanceView({
+  month,
+  today,
+  transactions,
+  history,
+  budgets,
+}: {
+  month: string;
+  today: string;
+  transactions: TxData[];
+  history: MonthTotals[];
+  budgets: Record<string, number>;
+}) {
   const [dialog, setDialog] = useState<{ tx: TxData | null } | null>(null);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const income = transactions.filter((t) => t.type === "income").reduce((a, t) => a + t.amountCents, 0);
   const expense = transactions.filter((t) => t.type === "expense").reduce((a, t) => a + t.amountCents, 0);
   const balance = income - expense;
@@ -112,6 +166,14 @@ export function FinanceView({ month, today, transactions, history }: { month: st
     color: slotVar(c.color),
     value: byCategory.get(c.key)!,
   }));
+
+  const budgetRows = EXPENSE_CATEGORIES.filter((c) => budgets[c.key]).map((c) => ({
+    ...c,
+    budget: budgets[c.key],
+    spent: byCategory.get(c.key) ?? 0,
+  }));
+  const budgetTotal = budgetRows.reduce((a, b) => a + b.budget, 0);
+  const budgetSpent = budgetRows.reduce((a, b) => a + b.spent, 0);
 
   const dates = [...new Set(transactions.map((t) => t.date))];
   const hasHistory = history.some((h) => h.income || h.expense);
@@ -167,6 +229,47 @@ export function FinanceView({ month, today, transactions, history }: { month: st
           </Card>
         </div>
 
+        <Card>
+          <CardHeader
+            title="Budgets"
+            hint={
+              budgetRows.length
+                ? `${formatMoney(budgetSpent)} von ${formatMoney(budgetTotal)} verbraucht · ${formatMonth(month)}`
+                : "Setze dir Monatsgrenzen je Kategorie und sieh, wie viel noch übrig ist."
+            }
+            action={
+              <Button size="sm" onClick={() => setBudgetOpen(true)}>
+                {budgetRows.length ? "Bearbeiten" : "Budgets festlegen"}
+              </Button>
+            }
+          />
+          {budgetRows.length ? (
+            <ul className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+              {budgetRows.map((b) => {
+                const over = b.spent > b.budget;
+                return (
+                  <li key={b.key}>
+                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                      <span className="flex min-w-0 items-center gap-2 text-ink">
+                        <Dot color={slotVar(b.color)} />
+                        <span className="truncate">{b.label}</span>
+                      </span>
+                      <span className="shrink-0 text-[13px] text-muted tabular-nums">
+                        {formatMoney(b.spent)} / {formatMoney(b.budget)}
+                      </span>
+                    </div>
+                    <ProgressBar value={b.spent / b.budget} color={over ? "var(--color-critical)" : slotVar(b.color)} label={`Budget ${b.label}`} />
+                    <p className={cn("mt-1.5 flex items-center gap-1.5 text-xs", over ? "text-danger" : "text-muted")}>
+                      {over ? <CircleAlert size={12} /> : null}
+                      {over ? `${formatMoney(b.spent - b.budget)} über dem Budget` : `Noch ${formatMoney(b.budget - b.spent)} übrig`}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </Card>
+
         <section className="card p-2">
           <h2 className="px-3 pt-2 pb-1 text-[15px] font-semibold tracking-tight">Buchungen</h2>
           {transactions.length ? (
@@ -219,6 +322,7 @@ export function FinanceView({ month, today, transactions, history }: { month: st
         </section>
       </div>
 
+      <BudgetDialog open={budgetOpen} onClose={() => setBudgetOpen(false)} budgets={budgets} />
       <TransactionDialog
         key={dialog?.tx?.id ?? "new"}
         open={dialog !== null}

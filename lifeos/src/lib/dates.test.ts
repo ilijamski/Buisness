@@ -39,3 +39,9 @@ test("relative Datumsangaben", () => {
   assert.equal(formatRelative("2026-11-11", "2026-11-10"), "Morgen");
   assert.equal(formatRelative("2026-11-09", "2026-11-10"), "Gestern");
 });
+
+test("addMonthsClamped bleibt im Zielmonat", async () => {
+  const { addMonthsClamped } = await import("./dates.ts");
+  assert.equal(addMonthsClamped("2026-01-31", 1), "2026-02-28");
+  assert.equal(addMonthsClamped("2026-11-15", 2), "2027-01-15");
+});

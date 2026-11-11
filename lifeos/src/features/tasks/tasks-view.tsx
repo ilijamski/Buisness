@@ -15,11 +15,12 @@ type Scope = "open" | "done" | "all";
 const byUrgency = (a: TaskRow, b: TaskRow) =>
   (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2) || (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
 
-export function TasksView({ tasks, projects, today }: { tasks: TaskRow[]; projects: ProjectOption[]; today: string }) {
-  const [scope, setScope] = useState<Scope>("open");
+export function TasksView({ tasks, projects, today, initialQuery = "" }: { tasks: TaskRow[]; projects: ProjectOption[]; today: string; initialQuery?: string }) {
+  // Aus der Suche heraus auch erledigte Aufgaben zeigen.
+  const [scope, setScope] = useState<Scope>(initialQuery ? "all" : "open");
   const [priority, setPriority] = useState("");
   const [project, setProject] = useState("");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [quick, setQuick] = useState("");
   const [dialog, setDialog] = useState<{ task: TaskRow | null } | null>(null);
   const { run, pending } = useAction();
@@ -174,7 +175,7 @@ export function TasksView({ tasks, projects, today }: { tasks: TaskRow[]; projec
         </div>
       )}
 
-      <TaskDialog open={dialog !== null} onClose={() => setDialog(null)} task={dialog?.task} projects={projects} />
+      <TaskDialog today={today} open={dialog !== null} onClose={() => setDialog(null)} task={dialog?.task} projects={projects} />
     </>
   );
 }
