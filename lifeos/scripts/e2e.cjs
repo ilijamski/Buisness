@@ -68,7 +68,9 @@ const ok = (name, cond, extra='') => { results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('dialog[open] input[name=dueDate]').fill(iso(day(1)));
   await page.locator('dialog[open] button[type=submit]').click();
   await toast('Aufgabe gespeichert');
-  ok('edit task', await page.locator('section', { hasText: 'E2E Schnellaufgabe' }).getByText('Dringend').count() > 0);
+  // Die neu geladenen Daten erscheinen kurz nach der Erfolgsmeldung – darauf warten statt sofort zählen.
+  const edited = page.locator('div[role=button]', { hasText: 'E2E Schnellaufgabe' }).getByText('Dringend');
+  ok('edit task', await edited.waitFor({ timeout: 8000 }).then(() => true, () => false));
   await page.waitForTimeout(500);
   await shot('04-aufgaben');
   await page.getByPlaceholder('Suchen').fill('zzzz-nichts');
