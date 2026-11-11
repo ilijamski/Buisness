@@ -21,7 +21,14 @@ async function runMigrations(exec: RawExec, query: RawQuery) {
   const applied = new Set((await query("select id from _migrations")).map((r) => Number(r.id)));
   for (const m of migrations) {
     if (applied.has(m.id)) continue;
-    await exec(`begin; ${m.sql}; insert into _migrations (id) values (${m.id}); commit;`);
+    try {
+      await exec(`begin; ${m.sql}; insert into _migrations (id) values (${m.id}); commit;`);
+    } catch (error) {
+      await exec("rollback").catch(() => {});
+      // Starten zwei Instanzen gleichzeitig, gewinnt eine – die andere prüft nur nach.
+      const now = await query(`select id from _migrations where id = ${m.id}`);
+      if (!now.length) throw error;
+    }
   }
 }
 
@@ -31,7 +38,7 @@ async function connect(): Promise<Db> {
     const { default: postgres } = await import("postgres");
     const { drizzle } = await import("drizzle-orm/postgres-js");
     // prepare:false hält die Verbindung kompatibel mit Connection-Poolern (z. B. Supabase).
-    const sql = postgres(url, { prepare: false, max: 5, onnotice: () => {} });
+    const sql = postgres(url, { prepare: false, max: 5, idle_timeout: 20, connect_timeout: 10, onnotice: () => {} });
     await runMigrations(
       (q) => sql.unsafe(q),
       async (q) => (await sql.unsafe(q)) as unknown as Record<string, unknown>[],
